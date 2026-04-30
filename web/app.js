@@ -195,6 +195,22 @@ function escapeHtml(str) {
     .replace(/'/g, '&#39;');
 }
 
+function decodeXmlEntities(str) {
+  return str
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&');
+}
+
+function getXmlAttribute(tag, name) {
+  const attrRe = new RegExp(`(?:^|\\s)${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)')`, 'i');
+  const match = tag.match(attrRe);
+  if (!match) return null;
+  return decodeXmlEntities(match[1] ?? match[2] ?? '');
+}
+
 /* ============================================================
    EPUB Parser
    ============================================================ */
@@ -213,17 +229,20 @@ async function parseEpub(base64data) {
 
   // Build manifest: id → href
   const manifest = {};
-  const manifestRe = /<item\s[^>]*id="([^"]+)"[^>]*href="([^"]+)"[^>]*/gi;
+  const manifestRe = /<item\b[^>]*>/gi;
   let m;
   while ((m = manifestRe.exec(opfXml)) !== null) {
-    manifest[m[1]] = m[2];
+    const id = getXmlAttribute(m[0], 'id');
+    const href = getXmlAttribute(m[0], 'href');
+    if (id && href) manifest[id] = href;
   }
 
   // Get spine order (idref list)
-  const spineRe = /<itemref\s[^>]*idref="([^"]+)"/gi;
+  const spineRe = /<itemref\b[^>]*>/gi;
   const spineIds = [];
   while ((m = spineRe.exec(opfXml)) !== null) {
-    spineIds.push(m[1]);
+    const idref = getXmlAttribute(m[0], 'idref');
+    if (idref) spineIds.push(idref);
   }
 
   // 3. Read each chapter XHTML and extract body content
@@ -246,6 +265,10 @@ async function parseEpub(base64data) {
       .replace(/<img[^>]*>/gi, '')  // skip broken image refs
       .replace(/<image[^>]*>/gi, '');
     chapters.push(cleaned);
+  }
+
+  if (!chapters.length) {
+    throw new Error('No readable chapters found in EPUB');
   }
 
   return chapters.join('\n<hr class="chapter-break">\n');
