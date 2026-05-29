@@ -1,22 +1,22 @@
 # BabyReader
 
-A dark-mode reader for macOS — Markdown and EPUB, read without noise.
+A dark-mode Markdown reader & editor for macOS — also opens EPUB, TXT, or any plain-text file, for focused reading.
 阅读是一座随身携带的避难所。
 
 ![BabyReader](assets/babyreader.png)
 
 ## What This Does
 
-**BabyReader** is a native macOS app that opens Markdown and EPUB files and renders them into a clean, distraction-free reading view. Think of it as a personal iBooks replacement — without the cloud sync, the store, or the engagement surface. Drop in a `.md`, `.txt`, or `.epub` file, read it in a warm dark environment designed for long sessions, then toggle into edit mode when you need to annotate Markdown content. No browser, no tabs, no ads — just the text.
+**BabyReader** is a native macOS app for reading and editing Markdown, with support for EPUB, TXT, CSV, and any plain-text file. Think of it as a personal iBooks replacement — without the cloud sync, the store, or the engagement surface. Drop in a file, read it in a warm dark environment designed for long sessions, then Cmd+E into a full editor when you need to write. No browser, no tabs, no ads — just the text.
 
 ### Key Features
 
 - **Dark mode** — warm dark theme with terracotta orange accent (#DA7756), designed for long reading sessions
 - **Markdown + EPUB** — standard Markdown via marked.js with custom block syntax; EPUB text extracted and rendered via JSZip (images and CSS stripped for clean reading)
-- **Reading-first** — opens directly to rendered view; light editing via Cmd+E toggle (Markdown only)
-- **Multi-window** — independent macOS windows for comparing content side by side
+- **Reading-first, editing-ready** — opens to rendered view; Cmd+E toggles a full editor with auto-save (all text formats — EPUB is read-only)
+- **Multi-window + Split View** — independent macOS windows for comparing content side by side; supports native full-screen Split View
 - **Font scaling** — Cmd+/Cmd− zoom, rem-based typography that scales cleanly
-- **File association** — double-click `.md`, `.txt`, or `.epub` to open directly; registers as default handler
+- **File association** — double-click `.md`, `.txt`, `.epub`, or any plain-text file to open directly; registers as default handler
 - **External links** — clickable links open in your default browser
 - **No dependencies** — pure Objective-C + WKWebView, no Electron, no Node.js
 
