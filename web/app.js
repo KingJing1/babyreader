@@ -1429,9 +1429,7 @@ function exportHighlights() {
   };
 
   if (state.isNative) {
-    sendNative('writeFile', { filename: highlightFileName(), content: md, silent: false });
-    sendNative('copyText', { text: md });
-    showCopied();
+    sendNative('exportFile', { filename: highlightFileName(), content: md });
     return;
   }
 

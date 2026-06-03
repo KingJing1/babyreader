@@ -276,6 +276,33 @@
     return;
   }
 
+  if ([type isEqualToString:@"exportFile"]) {
+    NSString *filename = payload[@"filename"];
+    NSString *content = payload[@"content"];
+    if ([filename isKindOfClass:[NSString class]] && filename.length &&
+        [content isKindOfClass:[NSString class]]) {
+      NSSavePanel *panel = [NSSavePanel savePanel];
+      panel.canCreateDirectories = YES;
+      panel.allowedContentTypes = @[[UTType typeWithFilenameExtension:@"md"]];
+      panel.nameFieldStringValue = filename;
+
+      NSArray *paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
+      NSString *defaultDir = [paths.firstObject stringByAppendingPathComponent:@"BabyReader"];
+      [[NSFileManager defaultManager] createDirectoryAtPath:defaultDir
+                                withIntermediateDirectories:YES attributes:nil error:nil];
+      panel.directoryURL = [NSURL fileURLWithPath:defaultDir];
+
+      if ([panel runModal] == NSModalResponseOK && panel.URL) {
+        [content writeToFile:panel.URL.path atomically:YES encoding:NSUTF8StringEncoding error:nil];
+        [self sendFunction:@"notifyHighlightFileWritten" payload:@{
+          @"path": panel.URL.path,
+          @"silent": @NO
+        }];
+      }
+    }
+    return;
+  }
+
   if ([type isEqualToString:@"writeFile"]) {
     NSString *filename = payload[@"filename"];
     NSString *content = payload[@"content"];

@@ -944,25 +944,33 @@ body:not(.toc-open) .toc {
   position: fixed;
   z-index: 200;
   background: var(--surface);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--border);
-  border-radius: 16px;
+  border-radius: 20px;
   font-family: var(--font-sans);
-  font-size: 13px;
+  font-size: 14px;
+  font-weight: 500;
   color: var(--text);
-  padding: 4px 12px;
+  padding: 6px 16px;
   cursor: pointer;
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.15s ease;
   user-select: none;
   -webkit-user-select: none;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.12);
 }
 
 .highlight-pill.visible {
   opacity: 1;
   pointer-events: auto;
+}
+
+.highlight-pill:hover {
+  background: var(--surface-alt);
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 /* ============================================================
