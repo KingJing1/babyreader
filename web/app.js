@@ -637,9 +637,8 @@ function toggleTheme() {
 function highlightIconSvg() {
   return `
     <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-      <path d="m4 20 5.5-1.2L19 9.3 14.7 5 5.2 14.5 4 20Z"></path>
-      <path d="m13.5 6.2 4.3 4.3"></path>
-      <path d="M12 20h8"></path>
+      <path d="m14.5 2.5 5 5-9.5 9.5H5V12Z"></path>
+      <path d="M3 22h18"></path>
     </svg>
   `;
 }
@@ -647,9 +646,9 @@ function highlightIconSvg() {
 function exportIconSvg() {
   return `
     <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M12 3v12"></path>
-      <path d="m7 10 5 5 5-5"></path>
-      <path d="M5 21h14"></path>
+      <path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"></path>
+      <path d="M12 14V3"></path>
+      <path d="m8 7 4-4 4 4"></path>
     </svg>
   `;
 }

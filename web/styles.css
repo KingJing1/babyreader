@@ -19,6 +19,7 @@
   --toc-bg:      rgba(35, 35, 35, 0.82);
   --hover-bg:    rgba(255, 255, 255, 0.06);
   --selection-bg:rgba(218, 119, 86, 0.3);
+  --highlight-bg:rgba(218, 119, 86, 0.18);
   --button-text: #ffffff;
   --code-text:   #c4886a;
   --pre-text:    #b8c0c8;
@@ -47,6 +48,7 @@ body.theme-light {
   --toc-bg:      rgba(246, 245, 241, 0.88);
   --hover-bg:    rgba(58, 52, 46, 0.06);
   --selection-bg:rgba(200, 162, 108, 0.28);
+  --highlight-bg:rgba(200, 162, 108, 0.22);
   --button-text: #3A342E;
   --code-text:   #7F5A2F;
   --pre-text:    #4A433A;
@@ -447,9 +449,8 @@ body.has-toc.toc-open .reader {
 .article .br-highlight-box {
   position: absolute;
   display: block;
-  background: var(--selection-bg);
+  background: var(--highlight-bg);
   border-radius: 2px;
-  mix-blend-mode: multiply;
 }
 
 /* Links */
