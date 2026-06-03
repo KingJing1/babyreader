@@ -242,9 +242,8 @@ body {
 }
 
 .toc-toggle[hidden],
-body.is-epub .mode-btn,
-#btnHighlight,
-#btnExportHighlights {
+.reader-tool-btn[hidden],
+body.is-epub .mode-btn {
   display: none;
 }
 
