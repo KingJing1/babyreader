@@ -326,7 +326,8 @@ function sanitizeEpubHtml(html) {
     .replace(/<embed\b[^>]*>/gi, '')
     .replace(/\s+on[a-z]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, '')
     .replace(/\s+style\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, '')
-    .replace(/\s+(href|src)\s*=\s*(["'])javascript:[\s\S]*?\2/gi, ' $1="#"');
+    .replace(/\s+(href|src)\s*=\s*(["'])javascript:[\s\S]*?\2/gi, ' $1="#"')
+    .replace(/\s+style\s*=\s*(?:"[^"]*"|'[^']*')/gi, '');
 }
 
 async function inlineResourceRefs(html, chapterPath, zip, mediaTypes) {
@@ -895,6 +896,10 @@ function setPendingDomHighlight(range, text) {
   const oldHandler = pill._clickHandler;
   if (oldHandler) pill.removeEventListener('click', oldHandler);
 
+  const sig = selectedTextSignature(text);
+  const isExisting = sig && loadHighlights().some(h => selectedTextSignature(h.text) === sig);
+  pill.textContent = isExisting ? '删除划线' : '划线';
+
   const clonedRange = range.cloneRange();
   const handler = () => {
     const pending = _pendingDomHighlight;
@@ -1445,15 +1450,18 @@ function flashFileName(message, duration = 1600) {
   const fileNameEl = document.getElementById('fileName');
   if (!fileNameEl) return;
 
+  const wasHidden = getComputedStyle(fileNameEl).display === 'none';
   const prev = fileNameEl.dataset.flashPrev ?? fileNameEl.textContent;
   fileNameEl.dataset.flashPrev = prev;
   clearTimeout(_fileNameFlashTimeout);
 
+  if (wasHidden) fileNameEl.style.display = 'block';
   fileNameEl.textContent = message;
   fileNameEl.style.color = 'var(--accent)';
   _fileNameFlashTimeout = setTimeout(() => {
     fileNameEl.textContent = fileNameEl.dataset.flashPrev || '';
     fileNameEl.style.color = '';
+    if (wasHidden) fileNameEl.style.display = '';
     delete fileNameEl.dataset.flashPrev;
   }, duration);
 }

@@ -372,16 +372,16 @@ body.has-toc.toc-open .reader {
 
 .article .epub-chapter,
 .article .epub-chapter * {
-  color: inherit;
-  font-family: var(--font-sans);
-  letter-spacing: 0;
-  box-sizing: border-box;
+  color: inherit !important;
+  font-family: -apple-system, "PingFang SC", "Helvetica Neue", sans-serif !important;
+  letter-spacing: 0 !important;
+  box-sizing: border-box !important;
 }
 
 .article .epub-chapter {
-  font-size: 1.125rem;
-  font-weight: 400;
-  line-height: 1.9;
+  font-size: 1.1875rem !important;
+  font-weight: 400 !important;
+  line-height: 1.9 !important;
   position: relative;
   z-index: 1;
 }
@@ -391,9 +391,9 @@ body.has-toc.toc-open .reader {
 .article .epub-chapter div,
 .article .epub-chapter section,
 .article .epub-chapter article {
-  font-size: 1em;
-  font-weight: 400;
-  line-height: 1.9;
+  font-size: 1em !important;
+  font-weight: 400 !important;
+  line-height: 1.9 !important;
 }
 
 .article .epub-chapter p,
