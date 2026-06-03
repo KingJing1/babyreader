@@ -6,7 +6,7 @@
   <title>BabyReader</title>
   <link rel="stylesheet" href="styles.css">
 </head>
-<body>
+<body class="is-welcome">
   <!-- Top bar: app name + file info + mode toggle -->
   <div class="topbar" id="topbar">
     <div class="topbar-left">
@@ -14,7 +14,9 @@
       <span class="file-name" id="fileName"></span>
     </div>
     <div class="topbar-right">
-      <button class="toc-toggle" id="btnToc" type="button" hidden aria-label="隐藏目录" title="隐藏目录">目录</button>
+      <button class="toc-toggle" id="btnToc" type="button" hidden aria-label="显示目录" title="显示目录"></button>
+      <button class="reader-tool-btn" id="btnHighlight" type="button" hidden aria-label="划线" title="划线"></button>
+      <button class="reader-tool-btn" id="btnExportHighlights" type="button" hidden aria-label="导出划线" title="导出划线"></button>
       <button class="theme-btn" id="btnTheme" type="button" aria-label="切换浅色模式" title="切换浅色模式"></button>
       <button class="mode-btn active" id="btnRead" onclick="setMode('read')">阅读</button>
       <button class="mode-btn" id="btnEdit" onclick="setMode('edit')">编辑</button>

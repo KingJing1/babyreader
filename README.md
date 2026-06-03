@@ -7,14 +7,14 @@ A native macOS reader for Markdown, plain text, and EPUB — warm themes, focuse
 
 ## What This Does
 
-**BabyReader** is a native macOS app for reading and editing Markdown, with full EPUB support powered by epub.js. Drop in a file, read it in a warm environment designed for long sessions, then Cmd+E into a full editor when you need to write. No browser, no tabs, no ads — just the text.
+**BabyReader** is a native macOS app for reading and editing Markdown, with full EPUB support. Drop in a file, read it in a warm environment designed for long sessions, then Cmd+E into a full editor when you need to write. No browser, no tabs, no ads — just the text.
 
 ### Key Features
 
-- **Dark & light themes** — warm dark (terracotta accent) and warm paper (gold accent), switchable with one click; EPUB content follows the theme
-- **EPUB rendering** — epub.js handles images, embedded resources, table-of-contents navigation, and continuous scrolling
-- **Highlighting** — select text in EPUB to highlight; highlights persist across sessions and export as Markdown (Cmd+Shift+E)
-- **Reading position** — remembers where you left off in every file; EPUB uses CFI, text files use scroll position
+- **Dark & light themes** — warm dark (terracotta accent) and warm paper (gold accent), switchable with one click; window chrome follows the theme
+- **EPUB rendering** — built-in parser handles images, embedded resources, table-of-contents navigation, and continuous scrolling
+- **Highlighting** — select text in EPUB to highlight; highlights persist across sessions, auto-save to `~/Documents/BabyReader/` as Markdown, and export via Cmd+Shift+E
+- **Reading position** — remembers where you left off in every file via scroll position
 - **Reading-first, editing-ready** — opens to rendered view; Cmd+E toggles a full editor with auto-save (Markdown/TXT only; EPUB is read-only)
 - **Multi-window + Split View** — independent macOS windows; supports native full-screen Split View
 - **Font scaling** — Cmd+/Cmd- zoom, rem-based typography that scales cleanly
@@ -67,8 +67,8 @@ babyreader/
 │   ├── app.js          # Rendering, highlights, edit mode, zoom, native bridge
 │   └── lib/
 │       ├── marked.min.js   # Markdown parser
-│       ├── epub.min.js     # EPUB renderer (epub.js)
-│       └── jszip.min.js    # ZIP parser
+│       ├── jszip.min.js    # EPUB/ZIP parser
+│       └── epub.min.js     # epub.js (bundled, reserved for future paginated mode)
 ├── scripts/
 │   └── build.sh        # Compile, bundle, install, sign, register
 └── tests/

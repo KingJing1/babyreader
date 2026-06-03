@@ -279,6 +279,7 @@
   if ([type isEqualToString:@"writeFile"]) {
     NSString *filename = payload[@"filename"];
     NSString *content = payload[@"content"];
+    BOOL silent = [payload[@"silent"] boolValue];
     if ([filename isKindOfClass:[NSString class]] && filename.length &&
         [content isKindOfClass:[NSString class]]) {
       NSArray *paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
@@ -287,6 +288,10 @@
                                 withIntermediateDirectories:YES attributes:nil error:nil];
       NSString *path = [dir stringByAppendingPathComponent:filename];
       [content writeToFile:path atomically:YES encoding:NSUTF8StringEncoding error:nil];
+      [self sendFunction:@"notifyHighlightFileWritten" payload:@{
+        @"path": path,
+        @"silent": @(silent)
+      }];
     }
     return;
   }

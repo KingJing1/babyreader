@@ -133,7 +133,7 @@ body {
 .topbar-right {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
   flex-shrink: 0;
   -webkit-app-region: no-drag;
 }
@@ -183,7 +183,8 @@ body {
   border-color: var(--accent);
 }
 
-.theme-btn {
+.theme-btn,
+.reader-tool-btn {
   -webkit-app-region: no-drag;
   width: 32px;
   height: 32px;
@@ -198,39 +199,65 @@ body {
   transition: color 0.15s ease, background 0.15s ease;
 }
 
-.theme-btn svg {
+.theme-btn svg,
+.reader-tool-btn svg {
   width: 18px;
   height: 18px;
   display: block;
   stroke: currentColor;
 }
 
-.theme-btn:hover {
+.theme-btn:hover,
+.reader-tool-btn:hover {
   color: var(--accent);
   background: var(--hover-bg);
 }
 
 .toc-toggle {
   -webkit-app-region: no-drag;
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   background: transparent;
-  border: 1px solid var(--border);
-  color: var(--text-muted);
-  font-family: var(--font-sans);
-  font-size: 13px;
-  padding: 4px 11px;
+  border: none;
   border-radius: 8px;
+  color: var(--text-muted);
   cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.toc-toggle svg {
+  width: 18px;
+  height: 18px;
+  display: block;
+  stroke: currentColor;
+  fill: none;
 }
 
 .toc-toggle:hover {
-  color: var(--text);
-  border-color: var(--accent);
+  color: var(--accent);
   background: var(--hover-bg);
 }
 
 .toc-toggle[hidden],
-body.is-epub .mode-btn {
+body.is-epub .mode-btn,
+#btnHighlight,
+#btnExportHighlights {
+  display: none;
+}
+
+body.is-epub .file-name {
+  display: none;
+}
+
+body.is-welcome .mode-btn,
+body.is-welcome .file-name {
+  display: none;
+}
+
+body.is-welcome .topbar {
   display: none;
 }
 
@@ -252,12 +279,14 @@ body.has-toc.toc-open .reader {
 }
 
 .reader .article {
+  position: relative;
   max-width: 720px;
   margin: 0 auto;
   padding: 96px 40px 120px; /* 48px topbar + 48px breathing room */
 }
 
 .epub-shell {
+  display: none;
   height: 100%;
   padding: var(--topbar-h) 0 0;
 }
@@ -276,7 +305,7 @@ body.has-toc.toc-open .reader {
 .reader.is-welcome .article {
   height: 100vh;
   max-width: none;
-  padding: var(--topbar-h) 40px 0;
+  padding: 0 40px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -338,6 +367,90 @@ body.has-toc.toc-open .reader {
   line-height: 1.9;
   color: var(--text);
   margin-bottom: 20px;
+}
+
+.article .epub-chapter,
+.article .epub-chapter * {
+  color: inherit;
+  font-family: var(--font-sans);
+  letter-spacing: 0;
+  box-sizing: border-box;
+}
+
+.article .epub-chapter {
+  font-size: 1.125rem;
+  font-weight: 400;
+  line-height: 1.9;
+  position: relative;
+  z-index: 1;
+}
+
+.article .epub-chapter p,
+.article .epub-chapter li,
+.article .epub-chapter div,
+.article .epub-chapter section,
+.article .epub-chapter article {
+  font-size: 1em;
+  font-weight: 400;
+  line-height: 1.9;
+}
+
+.article .epub-chapter p,
+.article .epub-chapter li {
+  text-align: justify;
+  margin-bottom: 1.1em;
+}
+
+.article .epub-chapter h1,
+.article .epub-chapter h2,
+.article .epub-chapter h3,
+.article .epub-chapter h4,
+.article .epub-chapter h5,
+.article .epub-chapter h6 {
+  font-family: var(--font-sans);
+  color: var(--text-strong);
+  font-weight: 700;
+  line-height: 1.35;
+  margin: 1.6em 0 0.75em;
+  padding-bottom: 0;
+  border-bottom: none;
+  text-align: left;
+}
+
+.article .epub-chapter h1 {
+  font-size: 1.65em;
+}
+
+.article .epub-chapter h2 {
+  font-size: 1.35em;
+}
+
+.article .epub-chapter h3,
+.article .epub-chapter h4,
+.article .epub-chapter h5,
+.article .epub-chapter h6 {
+  font-size: 1.12em;
+}
+
+.article .epub-chapter strong,
+.article .epub-chapter b {
+  color: var(--text-strong);
+  font-weight: 650;
+}
+
+.article .highlight-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.article .br-highlight-box {
+  position: absolute;
+  display: block;
+  background: var(--selection-bg);
+  border-radius: 2px;
+  mix-blend-mode: multiply;
 }
 
 /* Links */
