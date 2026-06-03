@@ -235,17 +235,12 @@ body {
 
 .epub-shell {
   height: 100%;
-  padding: 76px 44px 48px;
-}
-
-.has-toc .epub-shell {
-  padding-left: 44px;
+  padding: 76px 0 48px;
 }
 
 .epub-viewer {
-  width: min(760px, 100%);
+  width: 100%;
   height: 100%;
-  margin: 0 auto;
   color: var(--text);
 }
 
@@ -776,7 +771,7 @@ body {
   }
 
   .epub-shell {
-    padding: 72px 24px 40px;
+    padding: 72px 0 40px;
   }
 
   .article h1,

@@ -460,11 +460,14 @@ function getEpubThemeCss() {
       font-family: -apple-system, "PingFang SC", "Helvetica Neue", sans-serif !important;
       font-size: ${fontSize} !important;
       line-height: 1.9 !important;
-      padding: 0 2px !important;
+      max-width: 760px !important;
+      margin: 0 auto !important;
+      padding: 0 24px !important;
     }
     p, li {
       color: ${colors.text} !important;
       line-height: 1.9 !important;
+      text-align: justify !important;
     }
     h1, h2, h3, h4, h5, h6 {
       color: ${colors.textStrong} !important;
