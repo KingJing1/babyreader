@@ -8,6 +8,7 @@
 const state = {
   isNative: !!window.webkit?.messageHandlers?.native,
   mode: 'read',        // 'read' | 'edit'
+  theme: 'dark',       // 'dark' | 'light'
   currentPath: null,
   currentName: null,
   content: '',
@@ -31,6 +32,43 @@ function setDirty(nextDirty, notify = true) {
       dirty: state.dirty,
       content: state.contentType === 'text' ? state.content : ''
     });
+  }
+}
+
+function storageKey(prefix) {
+  if (!state.currentPath) return null;
+  return `babyreader:${prefix}:${state.contentType}:${state.currentPath}`;
+}
+
+function savedPosition() {
+  const key = storageKey('position');
+  if (!key) return null;
+  try {
+    return JSON.parse(localStorage.getItem(key) || 'null');
+  } catch {
+    return null;
+  }
+}
+
+function savePosition(value) {
+  const key = storageKey('position');
+  if (!key || !value) return;
+  localStorage.setItem(key, JSON.stringify(value));
+}
+
+function saveHighlights(highlights) {
+  const key = storageKey('highlights');
+  if (!key) return;
+  localStorage.setItem(key, JSON.stringify(highlights || []));
+}
+
+function loadHighlights() {
+  const key = storageKey('highlights');
+  if (!key) return [];
+  try {
+    return JSON.parse(localStorage.getItem(key) || '[]');
+  } catch {
+    return [];
   }
 }
 
@@ -384,38 +422,72 @@ function flattenToc(items, depth = 0) {
   return output;
 }
 
+function themeColors() {
+  if (state.theme === 'light') {
+    return {
+      bg: '#FCF8F1',
+      text: '#3A342E',
+      textMuted: '#8B8378',
+      textStrong: '#161513',
+      accent: '#C8A26C',
+      surface: '#FBF7EF'
+    };
+  }
+
+  return {
+    bg: '#1e1e1e',
+    text: '#e8e0d4',
+    textMuted: '#cdbfb2',
+    textStrong: '#f0e8dc',
+    accent: '#DA7756',
+    surface: '#232323'
+  };
+}
+
+function highlightColor() {
+  return state.theme === 'light'
+    ? 'rgba(200, 162, 108, 0.25)'
+    : 'rgba(218, 119, 86, 0.25)';
+}
+
 function getEpubThemeCss() {
   const fontSize = (zoomLevel / 100 * 18).toFixed(2) + 'px';
+  const colors = themeColors();
   return `
     body {
-      background: #1e1e1e !important;
-      color: #e8e0d4 !important;
+      background: ${colors.bg} !important;
+      color: ${colors.text} !important;
       font-family: -apple-system, "PingFang SC", "Helvetica Neue", sans-serif !important;
       font-size: ${fontSize} !important;
       line-height: 1.9 !important;
       padding: 0 2px !important;
     }
     p, li {
-      color: #e8e0d4 !important;
+      color: ${colors.text} !important;
       line-height: 1.9 !important;
     }
     h1, h2, h3, h4, h5, h6 {
-      color: #f0e8dc !important;
+      color: ${colors.textStrong} !important;
       line-height: 1.35 !important;
     }
     a {
-      color: #DA7756 !important;
+      color: ${colors.accent} !important;
     }
     img, svg {
       max-width: 100% !important;
       height: auto !important;
     }
     blockquote {
-      border-left: 3px solid #DA7756 !important;
-      color: #cdbfb2 !important;
+      border-left: 3px solid ${colors.accent} !important;
+      color: ${colors.textMuted} !important;
       margin-left: 0 !important;
       padding-left: 1.2em !important;
     }
+    pre, code {
+      background: ${colors.surface} !important;
+      color: ${colors.text} !important;
+    }
+    .epubjs-hl { fill: ${highlightColor()} !important; fill-opacity: 1 !important; mix-blend-mode: multiply; }
   `;
 }
 
@@ -425,7 +497,149 @@ function applyEpubTheme() {
   state.epubRendition.themes.select('babyreader');
 }
 
+function themeIconSvg(nextTheme) {
+  if (nextTheme === 'light') {
+    return `
+      <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="4"></circle>
+        <path d="M12 2v2"></path><path d="M12 20v2"></path>
+        <path d="m4.93 4.93 1.41 1.41"></path><path d="m17.66 17.66 1.41 1.41"></path>
+        <path d="M2 12h2"></path><path d="M20 12h2"></path>
+        <path d="m6.34 17.66-1.41 1.41"></path><path d="m19.07 4.93-1.41 1.41"></path>
+      </svg>
+    `;
+  }
+
+  return `
+    <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M20.4 14.4A7.3 7.3 0 0 1 9.6 3.6a8.7 8.7 0 1 0 10.8 10.8Z"></path>
+    </svg>
+  `;
+}
+
+function applyTheme(theme, persist = true) {
+  state.theme = theme === 'light' ? 'light' : 'dark';
+  document.body.classList.toggle('theme-light', state.theme === 'light');
+
+  const btnTheme = document.getElementById('btnTheme');
+  if (btnTheme) {
+    const isLight = state.theme === 'light';
+    btnTheme.innerHTML = themeIconSvg(isLight ? 'dark' : 'light');
+    btnTheme.setAttribute('aria-label', isLight ? '切换深色模式' : '切换浅色模式');
+    btnTheme.setAttribute('title', isLight ? '切换深色模式' : '切换浅色模式');
+  }
+
+  if (persist) {
+    localStorage.setItem('babyreader-theme', state.theme);
+  }
+
+  applyEpubTheme();
+}
+
+function toggleTheme() {
+  applyTheme(state.theme === 'light' ? 'dark' : 'light');
+}
+
+let _highlightPill = null;
+let _highlightPillTimeout = null;
+let _pendingCfiRange = null;
+
+function getHighlightPill() {
+  if (!_highlightPill) {
+    _highlightPill = document.createElement('button');
+    _highlightPill.className = 'highlight-pill';
+    _highlightPill.textContent = '划线';
+    document.body.appendChild(_highlightPill);
+  }
+  return _highlightPill;
+}
+
+function dismissHighlightPill() {
+  clearTimeout(_highlightPillTimeout);
+  _pendingCfiRange = null;
+  const pill = _highlightPill;
+  if (pill) {
+    pill.classList.remove('visible');
+  }
+}
+
+function showHighlightPill(x, y, cfiRange) {
+  const pill = getHighlightPill();
+  dismissHighlightPill();
+  _pendingCfiRange = cfiRange;
+
+  pill.style.left = x + 'px';
+  pill.style.top = y + 'px';
+  pill.classList.add('visible');
+
+  _highlightPillTimeout = setTimeout(dismissHighlightPill, 3000);
+}
+
+function setupHighlightInteraction() {
+  if (!state.epubRendition) return;
+
+  state.epubRendition.on('selected', (cfiRange, contents) => {
+    const sel = contents.window.getSelection();
+    if (!sel || sel.isCollapsed) return;
+
+    let x = 0;
+    let y = 0;
+    try {
+      const range = sel.getRangeAt(0);
+      const rect = range.getBoundingClientRect();
+      const iframes = document.querySelectorAll('#epubViewer iframe');
+      let iframeRect = { left: 0, top: 0 };
+      for (const iframe of iframes) {
+        if (iframe.contentWindow === contents.window) {
+          iframeRect = iframe.getBoundingClientRect();
+          break;
+        }
+      }
+      x = iframeRect.left + rect.left + rect.width / 2 - 30;
+      y = iframeRect.top + rect.top - 40;
+    } catch {
+      return;
+    }
+
+    const pill = getHighlightPill();
+
+    const oldHandler = pill._clickHandler;
+    if (oldHandler) pill.removeEventListener('click', oldHandler);
+
+    const handler = () => {
+      dismissHighlightPill();
+      const cfi = cfiRange;
+      const highlights = loadHighlights();
+      if (highlights.some(h => h.cfi === cfi)) {
+        contents.window.getSelection().removeAllRanges();
+        return;
+      }
+      state.epubRendition.annotations.highlight(cfi, {}, (e) => {
+        e.stopPropagation();
+        state.epubRendition.annotations.remove(cfi, 'highlight');
+        const remaining = loadHighlights().filter(x => x.cfi !== cfi);
+        saveHighlights(remaining);
+      });
+      let text = '';
+      try {
+        text = sel.toString().slice(0, 200);
+      } catch {
+        // ignore
+      }
+      highlights.push({ cfi, text });
+      saveHighlights(highlights);
+      contents.window.getSelection().removeAllRanges();
+    };
+    pill._clickHandler = handler;
+    pill.addEventListener('click', handler);
+
+    showHighlightPill(x, y, cfiRange);
+  });
+
+}
+
 function destroyEpub() {
+  dismissHighlightPill();
   if (state.epubRendition) {
     state.epubRendition.destroy();
     state.epubRendition = null;
@@ -465,7 +679,33 @@ async function renderEpubDocument(base64data) {
   state.toc = flattenToc(navigation?.toc || []);
   renderToc();
 
-  await state.epubRendition.display();
+  state.epubRendition.on('relocated', (location) => {
+    const cfi = location?.start?.cfi;
+    if (cfi) savePosition({ cfi });
+  });
+
+  setupHighlightInteraction();
+
+  const saved = savedPosition();
+  try {
+    await state.epubRendition.display(saved?.cfi || undefined);
+  } catch {
+    await state.epubRendition.display();
+  }
+
+  const highlights = loadHighlights();
+  for (const h of highlights) {
+    try {
+      state.epubRendition.annotations.highlight(h.cfi, {}, (e) => {
+        e.stopPropagation();
+        state.epubRendition.annotations.remove(h.cfi, 'highlight');
+        const remaining = loadHighlights().filter(x => x.cfi !== h.cfi);
+        saveHighlights(remaining);
+      });
+    } catch {
+      // ignore stale CFI
+    }
+  }
 }
 
 /* ============================================================
@@ -642,6 +882,24 @@ function renderToc() {
   }).join('');
 }
 
+function restoreTextScroll() {
+  if (state.contentType !== 'text') return;
+  const reader = document.getElementById('reader');
+  const saved = savedPosition();
+  if (!reader || typeof saved?.scrollTop !== 'number') return;
+
+  requestAnimationFrame(() => {
+    reader.scrollTop = Math.max(0, saved.scrollTop);
+  });
+}
+
+const saveTextScroll = debounce(() => {
+  if (state.contentType !== 'text' || !state.currentPath || state.mode !== 'read') return;
+  const reader = document.getElementById('reader');
+  if (!reader) return;
+  savePosition({ scrollTop: reader.scrollTop });
+}, 250);
+
 function renderPreview() {
   const preview = document.getElementById('preview');
   if (!preview) return;
@@ -767,6 +1025,39 @@ function saveFileBrowser() {
 }
 
 /* ============================================================
+   Highlight Export
+   ============================================================ */
+function exportHighlights() {
+  if (state.contentType !== 'epub') return;
+  const highlights = loadHighlights();
+  if (!highlights.length) return;
+
+  const bookName = (state.currentName || '未知书籍').replace(/\.epub$/i, '');
+  const date = new Date().toISOString().slice(0, 10);
+
+  let md = `# 《${bookName}》划线笔记\n\n`;
+  md += `导出日期：${date}\n\n---\n\n`;
+
+  for (const h of highlights) {
+    if (h.text) {
+      md += `> ${h.text}\n\n`;
+    }
+  }
+
+  navigator.clipboard.writeText(md).then(() => {
+    const fileNameEl = document.getElementById('fileName');
+    if (!fileNameEl) return;
+    const prev = fileNameEl.textContent;
+    fileNameEl.textContent = `已复制 ${highlights.length} 条划线`;
+    fileNameEl.style.color = 'var(--accent)';
+    setTimeout(() => {
+      fileNameEl.textContent = prev;
+      fileNameEl.style.color = '';
+    }, 1600);
+  });
+}
+
+/* ============================================================
    Keyboard Shortcuts
    ============================================================ */
 function setupKeyboard() {
@@ -800,13 +1091,6 @@ function setupKeyboard() {
         }
         break;
 
-      case 'e':
-        e.preventDefault();
-        if (state.contentType !== 'epub') {
-          setMode(state.mode === 'read' ? 'edit' : 'read');
-        }
-        break;
-
       case '=':
       case '+':
         e.preventDefault();
@@ -825,6 +1109,26 @@ function setupKeyboard() {
         zoomLevel = 100;
         applyZoom();
         break;
+
+      case 'h':
+        if (state.contentType === 'epub' && _pendingCfiRange) {
+          e.preventDefault();
+          const pill = _highlightPill;
+          if (pill && pill._clickHandler) pill._clickHandler();
+        }
+        break;
+
+      case 'e':
+        if (e.shiftKey && state.contentType === 'epub') {
+          e.preventDefault();
+          exportHighlights();
+          return;
+        }
+        if (!e.shiftKey && state.contentType !== 'epub') {
+          e.preventDefault();
+          setMode(state.mode === 'read' ? 'edit' : 'read');
+        }
+        break;
     }
   });
 }
@@ -840,6 +1144,23 @@ function setupTocNavigation() {
       state.epubRendition.display(target);
     }
   });
+}
+
+function setupThemeToggle() {
+  const savedTheme = localStorage.getItem('babyreader-theme');
+  applyTheme(savedTheme || 'dark', false);
+
+  const btnTheme = document.getElementById('btnTheme');
+  if (btnTheme) {
+    btnTheme.addEventListener('click', toggleTheme);
+  }
+}
+
+function setupPositionTracking() {
+  const reader = document.getElementById('reader');
+  if (reader) {
+    reader.addEventListener('scroll', saveTextScroll);
+  }
 }
 
 /* ============================================================
@@ -883,6 +1204,7 @@ window.appHost = {
     setDirty(false);
     setMode('read');
     renderArticle();
+    restoreTextScroll();
     renderToc();
   },
 
@@ -932,6 +1254,7 @@ window.appHost = {
    ============================================================ */
 document.addEventListener('DOMContentLoaded', () => {
   configureMarked();
+  setupThemeToggle();
 
   // Set up editor live preview with debounce
   const editor = document.getElementById('editor');
@@ -950,6 +1273,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
   setupKeyboard();
   setupTocNavigation();
+  setupPositionTracking();
+
+  document.addEventListener('click', (e) => {
+    if (_highlightPill && e.target !== _highlightPill) {
+      dismissHighlightPill();
+    }
+  });
 
   // Tell native layer the web view is ready
   sendNative('ready');
