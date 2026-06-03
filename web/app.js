@@ -622,6 +622,7 @@ function setupHighlightInteraction() {
         state.epubRendition.annotations.remove(cfi, 'highlight');
         const remaining = loadHighlights().filter(x => x.cfi !== cfi);
         saveHighlights(remaining);
+        autoSaveHighlights();
       });
       let text = '';
       try {
@@ -629,8 +630,9 @@ function setupHighlightInteraction() {
       } catch {
         // ignore
       }
-      highlights.push({ cfi, text });
+      highlights.push({ cfi, text, date: new Date().toISOString().slice(0, 10) });
       saveHighlights(highlights);
+      autoSaveHighlights();
       contents.window.getSelection().removeAllRanges();
     };
     pill._clickHandler = handler;
@@ -643,6 +645,7 @@ function setupHighlightInteraction() {
 
 function destroyEpub() {
   dismissHighlightPill();
+  state.epubMetadata = null;
   if (state.epubRendition) {
     state.epubRendition.destroy();
     state.epubRendition = null;
@@ -678,6 +681,9 @@ async function renderEpubDocument(base64data) {
 
   applyEpubTheme();
 
+  const metadata = await state.epubBook.loaded.metadata;
+  state.epubMetadata = metadata || {};
+
   const navigation = await state.epubBook.loaded.navigation;
   state.toc = flattenToc(navigation?.toc || []);
   renderToc();
@@ -704,6 +710,7 @@ async function renderEpubDocument(base64data) {
         state.epubRendition.annotations.remove(h.cfi, 'highlight');
         const remaining = loadHighlights().filter(x => x.cfi !== h.cfi);
         saveHighlights(remaining);
+        autoSaveHighlights();
       });
     } catch {
       // ignore stale CFI
@@ -1028,24 +1035,38 @@ function saveFileBrowser() {
 }
 
 /* ============================================================
-   Highlight Export
+   Highlight Export & Auto-save
    ============================================================ */
+function formatHighlightsMd(highlights) {
+  const bookName = (state.currentName || '未知书籍').replace(/\.epub$/i, '');
+  const author = state.epubMetadata?.creator || '';
+
+  let md = `# 《${bookName}》划线笔记\n\n`;
+  if (author) md += `作者：${author}\n\n`;
+  md += `---\n\n`;
+
+  for (const h of highlights) {
+    if (h.text) {
+      md += h.date ? `- [${h.date}] ${h.text}\n\n` : `- ${h.text}\n\n`;
+    }
+  }
+  return md;
+}
+
+function autoSaveHighlights() {
+  if (!state.isNative || state.contentType !== 'epub') return;
+  const highlights = loadHighlights();
+  const bookName = (state.currentName || '未知书籍').replace(/\.epub$/i, '');
+  const md = formatHighlightsMd(highlights);
+  sendNative('writeFile', { filename: `${bookName}.md`, content: md });
+}
+
 function exportHighlights() {
   if (state.contentType !== 'epub') return;
   const highlights = loadHighlights();
   if (!highlights.length) return;
 
-  const bookName = (state.currentName || '未知书籍').replace(/\.epub$/i, '');
-  const date = new Date().toISOString().slice(0, 10);
-
-  let md = `# 《${bookName}》划线笔记\n\n`;
-  md += `导出日期：${date}\n\n---\n\n`;
-
-  for (const h of highlights) {
-    if (h.text) {
-      md += `> ${h.text}\n\n`;
-    }
-  }
+  const md = formatHighlightsMd(highlights);
 
   navigator.clipboard.writeText(md).then(() => {
     const fileNameEl = document.getElementById('fileName');

@@ -264,6 +264,21 @@
     return;
   }
 
+  if ([type isEqualToString:@"writeFile"]) {
+    NSString *filename = payload[@"filename"];
+    NSString *content = payload[@"content"];
+    if ([filename isKindOfClass:[NSString class]] && filename.length &&
+        [content isKindOfClass:[NSString class]]) {
+      NSArray *paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
+      NSString *dir = [paths.firstObject stringByAppendingPathComponent:@"BabyReader"];
+      [[NSFileManager defaultManager] createDirectoryAtPath:dir
+                                withIntermediateDirectories:YES attributes:nil error:nil];
+      NSString *path = [dir stringByAppendingPathComponent:filename];
+      [content writeToFile:path atomically:YES encoding:NSUTF8StringEncoding error:nil];
+    }
+    return;
+  }
+
   (void)payload;
 }
 
