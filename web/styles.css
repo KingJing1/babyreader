@@ -210,6 +210,30 @@ body {
   background: var(--hover-bg);
 }
 
+.toc-toggle {
+  -webkit-app-region: no-drag;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  padding: 4px 11px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.toc-toggle:hover {
+  color: var(--text);
+  border-color: var(--accent);
+  background: var(--hover-bg);
+}
+
+.toc-toggle[hidden],
+body.is-epub .mode-btn {
+  display: none;
+}
+
 /* ============================================================
    Reader (read mode)
    ============================================================ */
@@ -219,7 +243,7 @@ body {
   overflow-x: hidden;
 }
 
-.has-toc .reader {
+body.has-toc.toc-open .reader {
   padding-left: 260px;
 }
 
@@ -235,17 +259,18 @@ body {
 
 .epub-shell {
   height: 100%;
-  padding: 76px 0 48px;
+  padding: var(--topbar-h) 0 0;
 }
 
 .epub-viewer {
   width: 100%;
-  height: 100%;
+  height: calc(100vh - var(--topbar-h));
+  background: var(--bg);
   color: var(--text);
 }
 
 .epub-viewer iframe {
-  background: var(--bg);
+  background: var(--bg) !important;
 }
 
 .reader.is-welcome .article {
@@ -487,6 +512,10 @@ body {
   border-right: 1px solid var(--border);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
+}
+
+body:not(.toc-open) .toc {
+  display: none !important;
 }
 
 .toc-title {
@@ -758,7 +787,7 @@ body {
    Responsive
    ============================================================ */
 @media (max-width: 800px) {
-  .has-toc .reader {
+  body.has-toc.toc-open .reader {
     padding-left: 0;
   }
 
@@ -771,7 +800,7 @@ body {
   }
 
   .epub-shell {
-    padding: 72px 0 40px;
+    padding: var(--topbar-h) 0 0;
   }
 
   .article h1,

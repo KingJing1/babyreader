@@ -18,7 +18,7 @@
     NSPoint point = [self.contentView convertPoint:event.locationInWindow fromView:nil];
     NSRect bounds = self.contentView.bounds;
     CGFloat topbarHeight = 56.0;
-    CGFloat rightControlsWidth = 180.0;
+    CGFloat rightControlsWidth = 360.0;
     BOOL isTopbar = NSPointInRect(point, bounds) && point.y >= NSHeight(bounds) - topbarHeight;
     BOOL isControlArea = point.x >= NSWidth(bounds) - rightControlsWidth;
 
@@ -76,9 +76,13 @@
 - (void)menuSave:(id)sender;
 - (void)menuSaveAs:(id)sender;
 - (void)menuToggleEditMode:(id)sender;
+- (void)menuToggleTheme:(id)sender;
+- (void)menuHighlightSelection:(id)sender;
+- (void)menuExportHighlights:(id)sender;
 - (void)menuZoomIn:(id)sender;
 - (void)menuZoomOut:(id)sender;
 - (void)menuZoomReset:(id)sender;
+- (void)applyThemeAppearance:(NSString *)theme;
 @end
 
 // ---------------------------------------------------------------------------
@@ -251,6 +255,14 @@
       self.currentTextContent = content;
     }
     [self updateWindowTitle];
+    return;
+  }
+
+  if ([type isEqualToString:@"themeChanged"]) {
+    NSString *theme = payload[@"theme"];
+    if ([theme isKindOfClass:[NSString class]]) {
+      [self applyThemeAppearance:theme];
+    }
     return;
   }
 
@@ -481,6 +493,18 @@
   [self callWebFunction:@"toggleEditMode"];
 }
 
+- (void)menuToggleTheme:(id)sender {
+  [self callWebFunction:@"toggleTheme"];
+}
+
+- (void)menuHighlightSelection:(id)sender {
+  [self callWebFunction:@"highlightSelection"];
+}
+
+- (void)menuExportHighlights:(id)sender {
+  [self callWebFunction:@"exportHighlights"];
+}
+
 - (void)menuZoomIn:(id)sender {
   [self callWebFunction:@"zoomIn"];
 }
@@ -561,6 +585,14 @@
     title = [title stringByAppendingString:@" • Edited"];
   }
   self.window.title = title;
+}
+
+- (void)applyThemeAppearance:(NSString *)theme {
+  NSString *appearanceName = [theme isEqualToString:@"light"]
+    ? NSAppearanceNameAqua
+    : NSAppearanceNameDarkAqua;
+  self.window.appearance = [NSAppearance appearanceNamed:appearanceName];
+  self.webView.appearance = self.window.appearance;
 }
 
 // ---------------------------------------------------------------------------
@@ -807,6 +839,18 @@
   [[self activeController] menuToggleEditMode:sender];
 }
 
+- (void)menuToggleTheme:(id)sender {
+  [[self activeController] menuToggleTheme:sender];
+}
+
+- (void)menuHighlightSelection:(id)sender {
+  [[self activeController] menuHighlightSelection:sender];
+}
+
+- (void)menuExportHighlights:(id)sender {
+  [[self activeController] menuExportHighlights:sender];
+}
+
 - (void)menuZoomIn:(id)sender {
   [[self activeController] menuZoomIn:sender];
 }
@@ -894,10 +938,31 @@
   toggleEditItem.target = self;
   [editMenu addItem:toggleEditItem];
 
+  NSMenuItem *highlightItem = [[NSMenuItem alloc] initWithTitle:@"Highlight Selection"
+                                                         action:@selector(menuHighlightSelection:)
+                                                  keyEquivalent:@"h"];
+  highlightItem.target = self;
+  [editMenu addItem:highlightItem];
+
+  NSMenuItem *exportHighlightsItem = [[NSMenuItem alloc] initWithTitle:@"Export Highlights"
+                                                                action:@selector(menuExportHighlights:)
+                                                         keyEquivalent:@"E"];
+  exportHighlightsItem.keyEquivalentModifierMask = NSEventModifierFlagCommand | NSEventModifierFlagShift;
+  exportHighlightsItem.target = self;
+  [editMenu addItem:exportHighlightsItem];
+
   // ---- View menu ----
   NSMenuItem *viewRoot = [bar addItemWithTitle:@"View" action:nil keyEquivalent:@""];
   NSMenu *viewMenu = [[NSMenu alloc] initWithTitle:@"View"];
   viewRoot.submenu = viewMenu;
+
+  NSMenuItem *toggleThemeItem = [[NSMenuItem alloc] initWithTitle:@"Toggle Theme"
+                                                           action:@selector(menuToggleTheme:)
+                                                    keyEquivalent:@"t"];
+  toggleThemeItem.target = self;
+  [viewMenu addItem:toggleThemeItem];
+
+  [viewMenu addItem:[NSMenuItem separatorItem]];
 
   NSMenuItem *zoomInItem = [[NSMenuItem alloc] initWithTitle:@"Zoom In"
                                                       action:@selector(menuZoomIn:)

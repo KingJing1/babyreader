@@ -13,6 +13,7 @@ const state = {
   currentName: null,
   content: '',
   toc: [],
+  tocOpen: true,
   epubBook: null,
   epubRendition: null,
   contentType: 'text',   // 'text' | 'epub'
@@ -454,19 +455,27 @@ function getEpubThemeCss() {
   const fontSize = (zoomLevel / 100 * 18).toFixed(2) + 'px';
   const colors = themeColors();
   return `
-    body {
+    html, body {
       background: ${colors.bg} !important;
       color: ${colors.text} !important;
+    }
+    body {
       font-family: -apple-system, "PingFang SC", "Helvetica Neue", sans-serif !important;
       font-size: ${fontSize} !important;
       line-height: 1.9 !important;
       max-width: 760px !important;
       margin: 0 auto !important;
-      padding: 0 24px !important;
+      padding: 32px 24px 64px !important;
+      box-sizing: border-box !important;
     }
-    p, li {
+    body, body * {
+      color: inherit !important;
+    }
+    p, li, div, section, article {
       color: ${colors.text} !important;
       line-height: 1.9 !important;
+    }
+    p, li {
       text-align: justify !important;
     }
     h1, h2, h3, h4, h5, h6 {
@@ -490,14 +499,51 @@ function getEpubThemeCss() {
       background: ${colors.surface} !important;
       color: ${colors.text} !important;
     }
+    ::selection {
+      background: ${highlightColor()} !important;
+      color: ${colors.textStrong} !important;
+    }
     .epubjs-hl { fill: ${highlightColor()} !important; fill-opacity: 1 !important; mix-blend-mode: multiply; }
   `;
+}
+
+function applyThemeToEpubFrames() {
+  const colors = themeColors();
+  const viewer = document.getElementById('epubViewer');
+  if (viewer) viewer.style.background = colors.bg;
+
+  document.querySelectorAll('#epubViewer iframe').forEach((iframe) => {
+    iframe.style.background = colors.bg;
+    try {
+      const doc = iframe.contentDocument;
+      if (!doc) return;
+      let style = doc.getElementById('babyreader-epub-theme');
+      if (!style) {
+        style = doc.createElement('style');
+        style.id = 'babyreader-epub-theme';
+        (doc.head || doc.documentElement || doc.body)?.appendChild(style);
+      }
+      style.textContent = getEpubThemeCss();
+      if (doc.documentElement) {
+        doc.documentElement.style.background = colors.bg;
+        doc.documentElement.style.color = colors.text;
+      }
+      if (doc.body) {
+        doc.body.style.background = colors.bg;
+        doc.body.style.color = colors.text;
+        doc.body.style.fontSize = (zoomLevel / 100 * 18).toFixed(2) + 'px';
+      }
+    } catch {
+      // Cross-origin frames should not happen for local EPUBs, but don't break theme switching.
+    }
+  });
 }
 
 function applyEpubTheme() {
   if (!state.epubRendition) return;
   state.epubRendition.themes.register('babyreader', getEpubThemeCss());
   state.epubRendition.themes.select('babyreader');
+  requestAnimationFrame(applyThemeToEpubFrames);
 }
 
 function themeIconSvg(nextTheme) {
@@ -536,6 +582,7 @@ function applyTheme(theme, persist = true) {
     localStorage.setItem('babyreader-theme', state.theme);
   }
 
+  sendNative('themeChanged', { theme: state.theme });
   applyEpubTheme();
 }
 
@@ -564,6 +611,7 @@ function dismissHighlightPill() {
   if (pill) {
     pill.classList.remove('visible');
   }
+  updateTopbarState();
 }
 
 function showHighlightPill(x, y, cfiRange) {
@@ -574,8 +622,112 @@ function showHighlightPill(x, y, cfiRange) {
   pill.style.left = x + 'px';
   pill.style.top = y + 'px';
   pill.classList.add('visible');
+  updateTopbarState();
 
   _highlightPillTimeout = setTimeout(dismissHighlightPill, 3000);
+}
+
+function runPendingHighlight() {
+  const pill = _highlightPill;
+  if (state.contentType === 'epub' && _pendingCfiRange && pill?._clickHandler) {
+    pill._clickHandler();
+    return true;
+  }
+  return false;
+}
+
+function updateTopbarState() {
+  const isEpub = state.contentType === 'epub';
+  const hasToc = isEpub && state.toc.length > 0;
+  const btnToc = document.getElementById('btnToc');
+  const btnEdit = document.getElementById('btnEdit');
+
+  document.body.classList.toggle('is-epub', isEpub);
+  document.body.classList.toggle('has-toc', hasToc);
+  document.body.classList.toggle('toc-open', hasToc && state.tocOpen);
+
+  if (btnToc) {
+    btnToc.hidden = !hasToc;
+    btnToc.textContent = state.tocOpen ? '隐藏目录' : '显示目录';
+    btnToc.setAttribute('aria-label', state.tocOpen ? '隐藏目录' : '显示目录');
+    btnToc.setAttribute('title', state.tocOpen ? '隐藏目录' : '显示目录');
+  }
+
+  if (btnEdit) {
+    btnEdit.disabled = isEpub;
+  }
+}
+
+function toggleToc() {
+  state.tocOpen = !state.tocOpen;
+  localStorage.setItem('babyreader-toc-open', state.tocOpen ? '1' : '0');
+  updateTopbarState();
+}
+
+function iframeRectForContents(contents) {
+  for (const iframe of document.querySelectorAll('#epubViewer iframe')) {
+    if (iframe.contentWindow === contents?.window) {
+      return iframe.getBoundingClientRect();
+    }
+  }
+  return { left: 0, top: 0 };
+}
+
+function addHighlight(cfi, text, contents) {
+  if (!cfi || !state.epubRendition) return;
+
+  const highlights = loadHighlights();
+  if (highlights.some(h => h.cfi === cfi)) {
+    contents?.window?.getSelection()?.removeAllRanges();
+    return;
+  }
+
+  state.epubRendition.annotations.highlight(cfi, {}, (e) => {
+    e.stopPropagation();
+    state.epubRendition.annotations.remove(cfi, 'highlight');
+    const remaining = loadHighlights().filter(x => x.cfi !== cfi);
+    saveHighlights(remaining);
+    autoSaveHighlights();
+    updateTopbarState();
+  });
+
+  highlights.push({
+    cfi,
+    text: String(text || '').slice(0, 500),
+    date: new Date().toISOString().slice(0, 10)
+  });
+  saveHighlights(highlights);
+  autoSaveHighlights();
+  updateTopbarState();
+  contents?.window?.getSelection()?.removeAllRanges();
+}
+
+function setPendingHighlight(cfiRange, contents, range, text) {
+  if (!cfiRange || !contents || !range) return;
+
+  let x = 0;
+  let y = 0;
+  try {
+    const rect = range.getBoundingClientRect();
+    const iframeRect = iframeRectForContents(contents);
+    x = iframeRect.left + rect.left + rect.width / 2 - 28;
+    y = iframeRect.top + rect.top - 42;
+  } catch {
+    return;
+  }
+
+  const pill = getHighlightPill();
+  const oldHandler = pill._clickHandler;
+  if (oldHandler) pill.removeEventListener('click', oldHandler);
+
+  const handler = () => {
+    const cfi = cfiRange;
+    dismissHighlightPill();
+    addHighlight(cfi, text, contents);
+  };
+  pill._clickHandler = handler;
+  pill.addEventListener('click', handler);
+  showHighlightPill(x, y, cfiRange);
 }
 
 function setupHighlightInteraction() {
@@ -585,60 +737,12 @@ function setupHighlightInteraction() {
     const sel = contents.window.getSelection();
     if (!sel || sel.isCollapsed) return;
 
-    let x = 0;
-    let y = 0;
     try {
       const range = sel.getRangeAt(0);
-      const rect = range.getBoundingClientRect();
-      const iframes = document.querySelectorAll('#epubViewer iframe');
-      let iframeRect = { left: 0, top: 0 };
-      for (const iframe of iframes) {
-        if (iframe.contentWindow === contents.window) {
-          iframeRect = iframe.getBoundingClientRect();
-          break;
-        }
-      }
-      x = iframeRect.left + rect.left + rect.width / 2 - 30;
-      y = iframeRect.top + rect.top - 40;
+      setPendingHighlight(cfiRange, contents, range, sel.toString());
     } catch {
       return;
     }
-
-    const pill = getHighlightPill();
-
-    const oldHandler = pill._clickHandler;
-    if (oldHandler) pill.removeEventListener('click', oldHandler);
-
-    const handler = () => {
-      dismissHighlightPill();
-      const cfi = cfiRange;
-      const highlights = loadHighlights();
-      if (highlights.some(h => h.cfi === cfi)) {
-        contents.window.getSelection().removeAllRanges();
-        return;
-      }
-      state.epubRendition.annotations.highlight(cfi, {}, (e) => {
-        e.stopPropagation();
-        state.epubRendition.annotations.remove(cfi, 'highlight');
-        const remaining = loadHighlights().filter(x => x.cfi !== cfi);
-        saveHighlights(remaining);
-        autoSaveHighlights();
-      });
-      let text = '';
-      try {
-        text = sel.toString().slice(0, 200);
-      } catch {
-        // ignore
-      }
-      highlights.push({ cfi, text, date: new Date().toISOString().slice(0, 10) });
-      saveHighlights(highlights);
-      autoSaveHighlights();
-      contents.window.getSelection().removeAllRanges();
-    };
-    pill._clickHandler = handler;
-    pill.addEventListener('click', handler);
-
-    showHighlightPill(x, y, cfiRange);
   });
 
 }
@@ -679,6 +783,12 @@ async function renderEpubDocument(base64data) {
     allowScriptedContent: false
   });
 
+  state.epubRendition.hooks.content.register((contents) => {
+    setupEpubContentKeyboard(contents);
+    setupEpubContentSelection(contents);
+    requestAnimationFrame(applyThemeToEpubFrames);
+  });
+
   applyEpubTheme();
 
   const metadata = await state.epubBook.loaded.metadata;
@@ -691,6 +801,9 @@ async function renderEpubDocument(base64data) {
   state.epubRendition.on('relocated', (location) => {
     const cfi = location?.start?.cfi;
     if (cfi) savePosition({ cfi });
+  });
+  state.epubRendition.on('rendered', () => {
+    applyThemeToEpubFrames();
   });
 
   setupHighlightInteraction();
@@ -711,11 +824,14 @@ async function renderEpubDocument(base64data) {
         const remaining = loadHighlights().filter(x => x.cfi !== h.cfi);
         saveHighlights(remaining);
         autoSaveHighlights();
+        updateTopbarState();
       });
     } catch {
       // ignore stale CFI
     }
   }
+  updateTopbarState();
+  applyThemeToEpubFrames();
 }
 
 /* ============================================================
@@ -883,7 +999,7 @@ function renderToc() {
   const hasToc = state.contentType === 'epub' && state.toc.length > 0;
 
   toc.style.display = hasToc ? '' : 'none';
-  document.body.classList.toggle('has-toc', hasToc);
+  updateTopbarState();
   if (!list || !hasToc) return;
 
   list.innerHTML = state.toc.map((item) => {
@@ -987,6 +1103,7 @@ let zoomLevel = 100; // percentage
 function applyZoom() {
   document.documentElement.style.fontSize = (zoomLevel / 100 * 16) + 'px';
   applyEpubTheme();
+  applyThemeToEpubFrames();
 }
 
 /* ============================================================
@@ -1064,11 +1181,14 @@ function autoSaveHighlights() {
 function exportHighlights() {
   if (state.contentType !== 'epub') return;
   const highlights = loadHighlights();
-  if (!highlights.length) return;
+  if (!highlights.length) {
+    showHighlightHint('还没有 EPUB 划线');
+    return;
+  }
 
   const md = formatHighlightsMd(highlights);
 
-  navigator.clipboard.writeText(md).then(() => {
+  const showCopied = () => {
     const fileNameEl = document.getElementById('fileName');
     if (!fileNameEl) return;
     const prev = fileNameEl.textContent;
@@ -1078,83 +1198,154 @@ function exportHighlights() {
       fileNameEl.textContent = prev;
       fileNameEl.style.color = '';
     }, 1600);
-  });
+  };
+
+  if (state.isNative) {
+    sendNative('copyText', { text: md });
+    showCopied();
+    return;
+  }
+
+  navigator.clipboard.writeText(md).then(showCopied);
+}
+
+function showHighlightHint(message) {
+  const fileNameEl = document.getElementById('fileName');
+  if (!fileNameEl) return;
+
+  const prev = fileNameEl.textContent;
+  fileNameEl.textContent = message;
+  fileNameEl.style.color = 'var(--accent)';
+  setTimeout(() => {
+    fileNameEl.textContent = prev;
+    fileNameEl.style.color = '';
+  }, 1600);
 }
 
 /* ============================================================
    Keyboard Shortcuts
    ============================================================ */
+function isShortcutModifierDown(e) {
+  const isMac = navigator.platform.toUpperCase().includes('MAC');
+  return isMac ? e.metaKey : e.ctrlKey;
+}
+
+function handleKeyboardShortcut(e) {
+  if (!isShortcutModifierDown(e)) return false;
+
+  switch (e.key.toLowerCase()) {
+    case 'o':
+      e.preventDefault();
+      if (state.isNative) {
+        sendNative('open');
+      } else {
+        openFileBrowser();
+      }
+      return true;
+
+    case 's':
+      e.preventDefault();
+      // Sync editor content to state before saving
+      if (state.mode === 'edit') {
+        const editor = document.getElementById('editor');
+        if (editor) state.content = editor.value;
+      }
+      if (state.isNative) {
+        sendNative('save', { content: state.content, path: state.currentPath });
+      } else {
+        saveFileBrowser();
+      }
+      return true;
+
+    case '=':
+    case '+':
+      e.preventDefault();
+      zoomLevel = Math.min(200, zoomLevel + 10);
+      applyZoom();
+      return true;
+
+    case '-':
+      e.preventDefault();
+      zoomLevel = Math.max(60, zoomLevel - 10);
+      applyZoom();
+      return true;
+
+    case '0':
+      e.preventDefault();
+      zoomLevel = 100;
+      applyZoom();
+      return true;
+
+    case 'h':
+      if (state.contentType === 'epub') {
+        e.preventDefault();
+        if (!runPendingHighlight()) {
+          showHighlightHint('先选中一段 EPUB 文本');
+        }
+        return true;
+      }
+      return false;
+
+    case 'e':
+      if (e.shiftKey && state.contentType === 'epub') {
+        e.preventDefault();
+        exportHighlights();
+        return true;
+      }
+      if (!e.shiftKey && state.contentType !== 'epub') {
+        e.preventDefault();
+        setMode(state.mode === 'read' ? 'edit' : 'read');
+        return true;
+      }
+      return false;
+
+    default:
+      return false;
+  }
+}
+
 function setupKeyboard() {
-  document.addEventListener('keydown', (e) => {
-    const isMac = navigator.platform.toUpperCase().includes('MAC');
-    const mod   = isMac ? e.metaKey : e.ctrlKey;
+  document.addEventListener('keydown', handleKeyboardShortcut);
+}
 
-    if (!mod) return;
+function setupEpubContentKeyboard(contents) {
+  const doc = contents?.document;
+  if (!doc) return;
+  if (doc._babyreaderShortcutsBound) return;
+  doc._babyreaderShortcutsBound = true;
+  doc.addEventListener('keydown', handleKeyboardShortcut);
+}
 
-    switch (e.key.toLowerCase()) {
-      case 'o':
-        e.preventDefault();
-        if (state.isNative) {
-          sendNative('open');
-        } else {
-          openFileBrowser();
-        }
-        break;
+function setupEpubContentSelection(contents) {
+  const doc = contents?.document;
+  const win = contents?.window;
+  if (!doc || !win || doc._babyreaderSelectionBound) return;
+  doc._babyreaderSelectionBound = true;
 
-      case 's':
-        e.preventDefault();
-        // Sync editor content to state before saving
-        if (state.mode === 'edit') {
-          const editor = document.getElementById('editor');
-          if (editor) state.content = editor.value;
-        }
-        if (state.isNative) {
-          sendNative('save', { content: state.content, path: state.currentPath });
-        } else {
-          saveFileBrowser();
-        }
-        break;
+  const readSelection = () => {
+    const sel = win.getSelection();
+    if (!sel || sel.isCollapsed || sel.rangeCount === 0) return;
 
-      case '=':
-      case '+':
-        e.preventDefault();
-        zoomLevel = Math.min(200, zoomLevel + 10);
-        applyZoom();
-        break;
-
-      case '-':
-        e.preventDefault();
-        zoomLevel = Math.max(60, zoomLevel - 10);
-        applyZoom();
-        break;
-
-      case '0':
-        e.preventDefault();
-        zoomLevel = 100;
-        applyZoom();
-        break;
-
-      case 'h':
-        if (state.contentType === 'epub' && _pendingCfiRange) {
-          e.preventDefault();
-          const pill = _highlightPill;
-          if (pill && pill._clickHandler) pill._clickHandler();
-        }
-        break;
-
-      case 'e':
-        if (e.shiftKey && state.contentType === 'epub') {
-          e.preventDefault();
-          exportHighlights();
-          return;
-        }
-        if (!e.shiftKey && state.contentType !== 'epub') {
-          e.preventDefault();
-          setMode(state.mode === 'read' ? 'edit' : 'read');
-        }
-        break;
+    let range;
+    let cfiRange;
+    try {
+      range = sel.getRangeAt(0);
+      if (typeof contents.cfiFromRange === 'function') {
+        cfiRange = contents.cfiFromRange(range);
+      } else if (state.epubBook?.cfiFromRange) {
+        cfiRange = state.epubBook.cfiFromRange(range);
+      }
+    } catch {
+      return;
     }
-  });
+
+    if (!cfiRange) return;
+    setPendingHighlight(cfiRange, contents, range, sel.toString());
+  };
+
+  doc.addEventListener('mouseup', () => setTimeout(readSelection, 0));
+  doc.addEventListener('keyup', () => setTimeout(readSelection, 0));
+  doc.addEventListener('touchend', () => setTimeout(readSelection, 120));
 }
 
 function setupTocNavigation() {
@@ -1180,6 +1371,16 @@ function setupThemeToggle() {
   }
 }
 
+function setupTocToggle() {
+  const savedTocOpen = localStorage.getItem('babyreader-toc-open');
+  state.tocOpen = savedTocOpen === null ? true : savedTocOpen === '1';
+
+  const btnToc = document.getElementById('btnToc');
+  if (btnToc) {
+    btnToc.addEventListener('click', toggleToc);
+  }
+}
+
 function setupPositionTracking() {
   const reader = document.getElementById('reader');
   if (reader) {
@@ -1196,7 +1397,9 @@ window.appHost = {
     state.currentName  = name;
     state.contentType  = (type === 'epub') ? 'epub' : 'text';
     state.toc          = [];
+    _pendingCfiRange   = null;
     renderToc();
+    updateTopbarState();
 
     const fileNameEl = document.getElementById('fileName');
     if (fileNameEl) fileNameEl.textContent = name;
@@ -1230,6 +1433,7 @@ window.appHost = {
     renderArticle();
     restoreTextScroll();
     renderToc();
+    updateTopbarState();
   },
 
   notifySaved({ path, name } = {}) {
@@ -1264,6 +1468,15 @@ window.appHost = {
     setMode(state.mode === 'read' ? 'edit' : 'read');
   },
 
+  toggleTheme,
+
+  highlightSelection() {
+    if (state.contentType !== 'epub') return;
+    if (!runPendingHighlight()) showHighlightHint('先选中一段 EPUB 文本');
+  },
+
+  exportHighlights,
+
   zoomIn()    { zoomLevel = Math.min(200, zoomLevel + 10); applyZoom(); },
   zoomOut()   { zoomLevel = Math.max(60, zoomLevel - 10);  applyZoom(); },
   zoomReset() { zoomLevel = 100; applyZoom(); },
@@ -1279,6 +1492,7 @@ window.appHost = {
 document.addEventListener('DOMContentLoaded', () => {
   configureMarked();
   setupThemeToggle();
+  setupTocToggle();
 
   // Set up editor live preview with debounce
   const editor = document.getElementById('editor');
@@ -1298,6 +1512,7 @@ document.addEventListener('DOMContentLoaded', () => {
   setupKeyboard();
   setupTocNavigation();
   setupPositionTracking();
+  updateTopbarState();
 
   document.addEventListener('click', (e) => {
     if (_highlightPill && e.target !== _highlightPill) {
