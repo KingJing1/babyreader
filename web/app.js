@@ -11,6 +11,9 @@ const state = {
   currentPath: null,
   currentName: null,
   content: '',
+  toc: [],
+  epubBook: null,
+  epubRendition: null,
   contentType: 'text',   // 'text' | 'epub'
   dirty: false
 };
@@ -205,10 +208,264 @@ function decodeXmlEntities(str) {
 }
 
 function getXmlAttribute(tag, name) {
-  const attrRe = new RegExp(`(?:^|\\s)${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)')`, 'i');
+  const attrRe = new RegExp(`(?:^|\\s)${name.replace(':', '\\:')}\\s*=\\s*(?:"([^"]*)"|'([^']*)')`, 'i');
   const match = tag.match(attrRe);
   if (!match) return null;
   return decodeXmlEntities(match[1] ?? match[2] ?? '');
+}
+
+function escapeHtmlAttribute(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+function stripXmlTags(str) {
+  return decodeXmlEntities(String(str).replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim());
+}
+
+function getDirPath(filePath) {
+  return filePath.includes('/') ? filePath.substring(0, filePath.lastIndexOf('/') + 1) : '';
+}
+
+function normalizeZipPath(path) {
+  const parts = [];
+  for (const part of String(path).replace(/\\/g, '/').split('/')) {
+    if (!part || part === '.') continue;
+    if (part === '..') {
+      parts.pop();
+    } else {
+      parts.push(part);
+    }
+  }
+  return parts.join('/');
+}
+
+function resolveZipPath(baseDir, href) {
+  const cleanHref = String(href || '').split('#')[0].split('?')[0];
+  return normalizeZipPath(baseDir + cleanHref);
+}
+
+function splitHref(href) {
+  const value = String(href || '');
+  const hashIndex = value.indexOf('#');
+  return {
+    path: hashIndex >= 0 ? value.slice(0, hashIndex) : value,
+    fragment: hashIndex >= 0 ? value.slice(hashIndex + 1) : ''
+  };
+}
+
+function getZipFile(zip, filePath) {
+  const normalized = normalizeZipPath(filePath);
+  return zip.file(normalized) || zip.file(decodeURIComponent(normalized));
+}
+
+function mimeFromPath(filePath) {
+  const ext = filePath.split('.').pop().toLowerCase();
+  const mimes = {
+    jpg: 'image/jpeg',
+    jpeg: 'image/jpeg',
+    png: 'image/png',
+    gif: 'image/gif',
+    svg: 'image/svg+xml',
+    webp: 'image/webp',
+    bmp: 'image/bmp',
+    avif: 'image/avif'
+  };
+  return mimes[ext] || 'application/octet-stream';
+}
+
+function sanitizeEpubHtml(html) {
+  return String(html)
+    .replace(/<script\b[\s\S]*?<\/script>/gi, '')
+    .replace(/<style\b[\s\S]*?<\/style>/gi, '')
+    .replace(/<iframe\b[\s\S]*?<\/iframe>/gi, '')
+    .replace(/<object\b[\s\S]*?<\/object>/gi, '')
+    .replace(/<embed\b[^>]*>/gi, '')
+    .replace(/\s+on[a-z]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, '')
+    .replace(/\s+(href|src)\s*=\s*(["'])javascript:[\s\S]*?\2/gi, ' $1="#"');
+}
+
+async function inlineResourceRefs(html, chapterPath, zip, mediaTypes) {
+  const chapterDir = getDirPath(chapterPath);
+  const tags = [...html.matchAll(/<(img|image)\b[^>]*>/gi)];
+  let output = html;
+
+  for (const match of tags) {
+    const tag = match[0];
+    const attrName = getXmlAttribute(tag, 'src') ? 'src'
+      : getXmlAttribute(tag, 'href') ? 'href'
+      : getXmlAttribute(tag, 'xlink:href') ? 'xlink:href'
+      : null;
+    if (!attrName) continue;
+
+    const href = getXmlAttribute(tag, attrName);
+    if (!href || /^(data:|https?:|file:|blob:)/i.test(href)) continue;
+
+    const imagePath = resolveZipPath(chapterDir, href);
+    const imageFile = getZipFile(zip, imagePath);
+    if (!imageFile) continue;
+
+    const mime = mediaTypes[imagePath] || mimeFromPath(imagePath);
+    const dataUrl = `data:${mime};base64,${await imageFile.async('base64')}`;
+    const attrRe = new RegExp(`(${attrName.replace(':', '\\:')}\\s*=\\s*)(["'])${href.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\2`, 'i');
+    const nextTag = tag.replace(attrRe, `$1$2${escapeHtmlAttribute(dataUrl)}$2`);
+    output = output.replace(tag, nextTag);
+  }
+
+  return output;
+}
+
+function parseNavToc(navHtml, navPath, chapterTargets) {
+  const navMatch = navHtml.match(/<nav\b[^>]*(?:epub:type|type)\s*=\s*["'][^"']*\btoc\b[^"']*["'][^>]*>([\s\S]*?)<\/nav>/i)
+    || navHtml.match(/<nav\b[^>]*>([\s\S]*?)<\/nav>/i);
+  if (!navMatch) return [];
+
+  const navDir = getDirPath(navPath);
+  const entries = [];
+  const linkRe = /<a\b[^>]*href\s*=\s*(["'])(.*?)\1[^>]*>([\s\S]*?)<\/a>/gi;
+  let m;
+  while ((m = linkRe.exec(navMatch[1])) !== null) {
+    const rawHref = decodeXmlEntities(m[2]);
+    const label = stripXmlTags(m[3]);
+    if (!rawHref || !label) continue;
+
+    const split = splitHref(rawHref);
+    const chapterPath = resolveZipPath(navDir, split.path);
+    const fallbackTarget = chapterTargets[chapterPath];
+    const target = split.fragment ? `#${split.fragment}` : fallbackTarget;
+    if (target) entries.push({ label, target });
+  }
+  return entries;
+}
+
+function parseNcxToc(ncxXml, ncxPath, chapterTargets) {
+  const ncxDir = getDirPath(ncxPath);
+  const entries = [];
+  const pointRe = /<navPoint\b[^>]*>([\s\S]*?)<\/navPoint>/gi;
+  let m;
+  while ((m = pointRe.exec(ncxXml)) !== null) {
+    const labelMatch = m[1].match(/<navLabel\b[^>]*>[\s\S]*?<text\b[^>]*>([\s\S]*?)<\/text>[\s\S]*?<\/navLabel>/i);
+    const contentMatch = m[1].match(/<content\b[^>]*src\s*=\s*(["'])(.*?)\1[^>]*\/?>/i);
+    if (!labelMatch || !contentMatch) continue;
+
+    const label = stripXmlTags(labelMatch[1]);
+    const rawHref = decodeXmlEntities(contentMatch[2]);
+    const split = splitHref(rawHref);
+    const chapterPath = resolveZipPath(ncxDir, split.path);
+    const fallbackTarget = chapterTargets[chapterPath];
+    const target = split.fragment ? `#${split.fragment}` : fallbackTarget;
+    if (label && target) entries.push({ label, target });
+  }
+  return entries;
+}
+
+function base64ToArrayBuffer(base64) {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes.buffer;
+}
+
+function flattenToc(items, depth = 0) {
+  const output = [];
+  for (const item of items || []) {
+    if (item?.label && item?.href) {
+      output.push({ label: item.label, target: item.href, depth });
+    }
+    if (item?.subitems?.length) {
+      output.push(...flattenToc(item.subitems, depth + 1));
+    }
+  }
+  return output;
+}
+
+function getEpubThemeCss() {
+  const fontSize = (zoomLevel / 100 * 18).toFixed(2) + 'px';
+  return `
+    body {
+      background: #1e1e1e !important;
+      color: #e8e0d4 !important;
+      font-family: -apple-system, "PingFang SC", "Helvetica Neue", sans-serif !important;
+      font-size: ${fontSize} !important;
+      line-height: 1.9 !important;
+      padding: 0 2px !important;
+    }
+    p, li {
+      color: #e8e0d4 !important;
+      line-height: 1.9 !important;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      color: #f0e8dc !important;
+      line-height: 1.35 !important;
+    }
+    a {
+      color: #DA7756 !important;
+    }
+    img, svg {
+      max-width: 100% !important;
+      height: auto !important;
+    }
+    blockquote {
+      border-left: 3px solid #DA7756 !important;
+      color: #cdbfb2 !important;
+      margin-left: 0 !important;
+      padding-left: 1.2em !important;
+    }
+  `;
+}
+
+function applyEpubTheme() {
+  if (!state.epubRendition) return;
+  state.epubRendition.themes.register('babyreader', getEpubThemeCss());
+  state.epubRendition.themes.select('babyreader');
+}
+
+function destroyEpub() {
+  if (state.epubRendition) {
+    state.epubRendition.destroy();
+    state.epubRendition = null;
+  }
+  if (state.epubBook) {
+    state.epubBook.destroy();
+    state.epubBook = null;
+  }
+
+  const viewer = document.getElementById('epubViewer');
+  if (viewer) viewer.innerHTML = '';
+}
+
+async function renderEpubDocument(base64data) {
+  if (typeof ePub !== 'function') {
+    throw new Error('EPUB renderer is not available');
+  }
+
+  destroyEpub();
+
+  const viewer = document.getElementById('epubViewer');
+  if (!viewer) throw new Error('EPUB viewer is missing');
+
+  state.epubBook = ePub(base64ToArrayBuffer(base64data));
+  state.epubRendition = state.epubBook.renderTo(viewer, {
+    width: '100%',
+    height: '100%',
+    flow: 'scrolled-doc',
+    manager: 'continuous',
+    spread: 'none',
+    allowScriptedContent: false
+  });
+
+  applyEpubTheme();
+
+  const navigation = await state.epubBook.loaded.navigation;
+  state.toc = flattenToc(navigation?.toc || []);
+  renderToc();
+
+  await state.epubRendition.display();
 }
 
 /* ============================================================
@@ -227,14 +484,21 @@ async function parseEpub(base64data) {
   // 2. Parse OPF to get spine order
   const opfXml = await zip.file(opfPath).async('text');
 
-  // Build manifest: id → href
+  // Build manifest: id → item metadata
   const manifest = {};
+  const mediaTypes = {};
   const manifestRe = /<item\b[^>]*>/gi;
   let m;
   while ((m = manifestRe.exec(opfXml)) !== null) {
     const id = getXmlAttribute(m[0], 'id');
     const href = getXmlAttribute(m[0], 'href');
-    if (id && href) manifest[id] = href;
+    const mediaType = getXmlAttribute(m[0], 'media-type') || '';
+    const properties = getXmlAttribute(m[0], 'properties') || '';
+    if (id && href) {
+      const fullPath = resolveZipPath(opfDir, href);
+      manifest[id] = { href, fullPath, mediaType, properties };
+      if (mediaType) mediaTypes[fullPath] = mediaType;
+    }
   }
 
   // Get spine order (idref list)
@@ -247,11 +511,12 @@ async function parseEpub(base64data) {
 
   // 3. Read each chapter XHTML and extract body content
   const chapters = [];
+  const chapterTargets = {};
   for (const id of spineIds) {
-    const href = manifest[id];
-    if (!href) continue;
-    const fullPath = opfDir + href;
-    const file = zip.file(fullPath) || zip.file(href);
+    const item = manifest[id];
+    if (!item) continue;
+    const fullPath = item.fullPath;
+    const file = getZipFile(zip, fullPath);
     if (!file) continue;
 
     const xhtml = await file.async('text');
@@ -259,19 +524,41 @@ async function parseEpub(base64data) {
     const bodyMatch = xhtml.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
     const bodyContent = bodyMatch ? bodyMatch[1] : xhtml;
     // Strip namespace attributes and xml:lang etc
-    const cleaned = bodyContent
+    const chapterId = `br-chapter-${chapters.length + 1}`;
+    chapterTargets[fullPath] = `#${chapterId}`;
+    const cleaned = await inlineResourceRefs(sanitizeEpubHtml(bodyContent), fullPath, zip, mediaTypes)
+      .then(content => content
       .replace(/\s+xmlns(?::\w+)?="[^"]*"/g, '')
       .replace(/\s+xml:\w+="[^"]*"/g, '')
-      .replace(/<img[^>]*>/gi, '')  // skip broken image refs
-      .replace(/<image[^>]*>/gi, '');
-    chapters.push(cleaned);
+      .replace(/<svg\b/gi, '<svg class="epub-svg"')
+      );
+    chapters.push(`<section class="epub-chapter" id="${chapterId}" data-source-path="${escapeHtmlAttribute(fullPath)}">${cleaned}</section>`);
   }
 
   if (!chapters.length) {
     throw new Error('No readable chapters found in EPUB');
   }
 
-  return chapters.join('\n<hr class="chapter-break">\n');
+  let toc = [];
+  const navItem = Object.values(manifest).find(item => /\bnav\b/i.test(item.properties));
+  if (navItem) {
+    const navFile = getZipFile(zip, navItem.fullPath);
+    if (navFile) toc = parseNavToc(await navFile.async('text'), navItem.fullPath, chapterTargets);
+  }
+
+  if (!toc.length) {
+    const ncxItem = Object.values(manifest).find(item => item.mediaType === 'application/x-dtbncx+xml')
+      || manifest[(opfXml.match(/<spine\b[^>]*toc\s*=\s*(["'])(.*?)\1/i) || [])[2]];
+    if (ncxItem) {
+      const ncxFile = getZipFile(zip, ncxItem.fullPath);
+      if (ncxFile) toc = parseNcxToc(await ncxFile.async('text'), ncxItem.fullPath, chapterTargets);
+    }
+  }
+
+  return {
+    html: chapters.join('\n<hr class="chapter-break">\n'),
+    toc
+  };
 }
 
 /* ============================================================
@@ -293,11 +580,14 @@ function renderArticle() {
   const article = document.getElementById('article');
   const reader = document.getElementById('reader');
   const welcome = document.getElementById('welcome');
+  const epubShell = document.getElementById('epubShell');
   const isWelcome = !state.currentPath && (!state.content || !state.content.trim());
 
   if (reader) reader.classList.toggle('is-welcome', isWelcome);
 
   if (isWelcome) {
+    if (epubShell) epubShell.style.display = 'none';
+    if (article) article.style.display = '';
     article.innerHTML = '';
     if (welcome) {
       welcome.style.display = '';
@@ -307,18 +597,49 @@ function renderArticle() {
   }
 
   if (!state.content || !state.content.trim()) {
+    if (epubShell) epubShell.style.display = 'none';
+    if (article) article.style.display = '';
     article.innerHTML = '';
     return;
   }
 
   if (state.contentType === 'epub') {
-    // EPUB content is already HTML — render directly
-    article.innerHTML = state.content;
+    if (article) article.style.display = 'none';
+    if (epubShell) epubShell.style.display = '';
   } else {
+    if (epubShell) epubShell.style.display = 'none';
+    if (article) article.style.display = '';
     // Markdown — run through preprocessor + marked
     const html = preprocessCustomBlocks(state.content);
     article.innerHTML = html;
   }
+}
+
+function ensureTocElement() {
+  let toc = document.getElementById('toc');
+  if (toc) return toc;
+
+  toc = document.createElement('aside');
+  toc.id = 'toc';
+  toc.className = 'toc';
+  toc.innerHTML = '<div class="toc-title">目录</div><ol id="tocList"></ol>';
+  document.body.appendChild(toc);
+  return toc;
+}
+
+function renderToc() {
+  const toc = ensureTocElement();
+  const list = document.getElementById('tocList');
+  const hasToc = state.contentType === 'epub' && state.toc.length > 0;
+
+  toc.style.display = hasToc ? '' : 'none';
+  document.body.classList.toggle('has-toc', hasToc);
+  if (!list || !hasToc) return;
+
+  list.innerHTML = state.toc.map((item) => {
+    const depth = Math.min(Number(item.depth || 0), 3);
+    return `<li class="toc-depth-${depth}"><a href="#" data-target="${escapeHtmlAttribute(item.target)}">${escapeHtml(item.label)}</a></li>`;
+  }).join('');
 }
 
 function renderPreview() {
@@ -397,6 +718,7 @@ let zoomLevel = 100; // percentage
 
 function applyZoom() {
   document.documentElement.style.fontSize = (zoomLevel / 100 * 16) + 'px';
+  applyEpubTheme();
 }
 
 /* ============================================================
@@ -413,13 +735,22 @@ function openFileBrowser() {
 
     const reader = new FileReader();
     reader.onload = (ev) => {
+      const isEpub = /\.epub$/i.test(file.name);
+      const result = ev.target.result || '';
       window.appHost.receiveDocument({
         path: file.name,
         name: file.name,
-        content: ev.target.result
+        type: isEpub ? 'epub' : 'text',
+        content: isEpub ? '' : result,
+        data: isEpub ? String(result).split(',')[1] : undefined
       });
     };
-    reader.readAsText(file, 'UTF-8');
+
+    if (/\.epub$/i.test(file.name)) {
+      reader.readAsDataURL(file);
+    } else {
+      reader.readAsText(file, 'UTF-8');
+    }
   };
 
   input.click();
@@ -498,6 +829,19 @@ function setupKeyboard() {
   });
 }
 
+function setupTocNavigation() {
+  document.addEventListener('click', (e) => {
+    const link = e.target.closest?.('.toc a[data-target]');
+    if (!link) return;
+
+    e.preventDefault();
+    const target = link.getAttribute('data-target');
+    if (state.epubRendition && target) {
+      state.epubRendition.display(target);
+    }
+  });
+}
+
 /* ============================================================
    appHost API — called by native layer
    ============================================================ */
@@ -506,6 +850,8 @@ window.appHost = {
     state.currentPath  = path;
     state.currentName  = name;
     state.contentType  = (type === 'epub') ? 'epub' : 'text';
+    state.toc          = [];
+    renderToc();
 
     const fileNameEl = document.getElementById('fileName');
     if (fileNameEl) fileNameEl.textContent = name;
@@ -513,20 +859,31 @@ window.appHost = {
     if (type === 'epub' && data) {
       // Show loading state
       const article = document.getElementById('article');
-      article.innerHTML = '<p style="color:var(--text-dim);padding:80px 40px;">正在解析 EPUB…</p>';
+      const epubShell = document.getElementById('epubShell');
+      if (article) {
+        article.style.display = '';
+        article.innerHTML = '<p style="color:var(--text-dim);padding:80px 40px;">正在打开 EPUB…</p>';
+      }
+      if (epubShell) epubShell.style.display = 'none';
 
       try {
-        state.content = await parseEpub(data);
+        state.content = '[epub]';
+        renderArticle();
+        await renderEpubDocument(data);
       } catch (err) {
+        destroyEpub();
         state.content = `<p style="color:var(--accent)">EPUB 解析失败：${err.message}</p>`;
+        state.contentType = 'text';
       }
     } else {
+      destroyEpub();
       state.content = content || '';
     }
 
     setDirty(false);
     setMode('read');
     renderArticle();
+    renderToc();
   },
 
   notifySaved({ path, name } = {}) {
@@ -592,6 +949,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   setupKeyboard();
+  setupTocNavigation();
 
   // Tell native layer the web view is ready
   sendNative('ready');

@@ -12,7 +12,7 @@ A dark-mode Markdown reader & editor for macOS — also opens EPUB, TXT, or any 
 ### Key Features
 
 - **Dark mode** — warm dark theme with terracotta orange accent (#DA7756), designed for long reading sessions
-- **Markdown + EPUB** — standard Markdown via marked.js with custom block syntax; EPUB text extracted and rendered via JSZip (images and CSS stripped for clean reading)
+- **Markdown + EPUB** — standard Markdown via marked.js with custom block syntax; EPUB reading powered by epub.js for images, resources, and table-of-contents navigation
 - **Reading-first, editing-ready** — opens to rendered view; Cmd+E toggles a full editor with auto-save (all text formats — EPUB is read-only)
 - **Multi-window + Split View** — independent macOS windows for comparing content side by side; supports native full-screen Split View
 - **Font scaling** — Cmd+/Cmd− zoom, rem-based typography that scales cleanly

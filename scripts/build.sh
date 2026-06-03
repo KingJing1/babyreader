@@ -36,6 +36,7 @@ cp "${ROOT_DIR}/web/app.js"      "${RESOURCES_WEB}/app.js"
 # Copy marked.min.js
 cp "${ROOT_DIR}/web/lib/marked.min.js" "${RESOURCES_WEB_LIB}/marked.min.js"
 cp "${ROOT_DIR}/web/lib/jszip.min.js"  "${RESOURCES_WEB_LIB}/jszip.min.js"
+cp "${ROOT_DIR}/web/lib/epub.min.js"   "${RESOURCES_WEB_LIB}/epub.min.js"
 
 # Copy web assets (cat logo, etc.)
 if [ -d "${ROOT_DIR}/web/assets" ]; then

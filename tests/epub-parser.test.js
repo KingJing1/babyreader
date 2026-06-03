@@ -45,7 +45,7 @@ function loadParserContext() {
   return context;
 }
 
-async function makeEpub({ manifestItem }) {
+async function makeEpub({ manifestItems, spineItems, files }) {
   const { JSZip } = loadParserContext();
   const zip = new JSZip();
 
@@ -59,18 +59,15 @@ async function makeEpub({ manifestItem }) {
   zip.file('OEBPS/content.opf', `<?xml version="1.0"?>
 <package>
   <manifest>
-    ${manifestItem}
+    ${manifestItems}
   </manifest>
   <spine>
-    <itemref idref="chapter1"/>
+    ${spineItems}
   </spine>
 </package>`);
-  zip.file('OEBPS/Text/chapter1.html', `<?xml version="1.0"?>
-<html>
-  <body>
-    <p>Readable chapter text</p>
-  </body>
-</html>`);
+  for (const [filePath, value] of Object.entries(files)) {
+    zip.file(filePath, value);
+  }
 
   return zip.generateAsync({ type: 'base64' });
 }
@@ -78,16 +75,117 @@ async function makeEpub({ manifestItem }) {
 async function testManifestAttributesCanBeInAnyOrder() {
   const context = loadParserContext();
   const base64 = await makeEpub({
-    manifestItem: '<item href="Text/chapter1.html" id="chapter1" media-type="application/xhtml+xml"/>'
+    manifestItems: '<item href="Text/chapter1.html" id="chapter1" media-type="application/xhtml+xml"/>',
+    spineItems: '<itemref idref="chapter1"/>',
+    files: {
+      'OEBPS/Text/chapter1.html': `<?xml version="1.0"?>
+<html>
+  <body>
+    <p>Readable chapter text</p>
+  </body>
+</html>`
+    }
   });
 
-  const html = await context.parseEpub(base64);
+  const epub = await context.parseEpub(base64);
 
-  assert.match(html, /Readable chapter text/);
+  assert.match(epub.html, /Readable chapter text/);
+}
+
+async function testRelativeImagesAreInlined() {
+  const context = loadParserContext();
+  const base64 = await makeEpub({
+    manifestItems: `
+      <item href="Text/chapter1.html" id="chapter1" media-type="application/xhtml+xml"/>
+      <item href="Images/example.png" id="img1" media-type="image/png"/>
+    `,
+    spineItems: '<itemref idref="chapter1"/>',
+    files: {
+      'OEBPS/Text/chapter1.html': `<?xml version="1.0"?>
+<html>
+  <body>
+    <p>Before image</p>
+    <img src="../Images/example.png" alt="Example">
+  </body>
+</html>`,
+      'OEBPS/Images/example.png': 'png-bytes'
+    }
+  });
+
+  const epub = await context.parseEpub(base64);
+
+  assert.match(epub.html, /<img src="data:image\/png;base64,/);
+  assert.match(epub.html, /alt="Example"/);
+  assert.doesNotMatch(epub.html, /\.\.\/Images\/example\.png/);
+}
+
+async function testNavTocTargetsChapterAnchors() {
+  const context = loadParserContext();
+  const base64 = await makeEpub({
+    manifestItems: `
+      <item href="Text/chapter1.html" id="chapter1" media-type="application/xhtml+xml"/>
+      <item href="nav.xhtml" id="nav" media-type="application/xhtml+xml" properties="nav"/>
+    `,
+    spineItems: '<itemref idref="chapter1"/>',
+    files: {
+      'OEBPS/Text/chapter1.html': `<?xml version="1.0"?>
+<html>
+  <body>
+    <h1>Chapter One</h1>
+  </body>
+</html>`,
+      'OEBPS/nav.xhtml': `<?xml version="1.0"?>
+<html>
+  <body>
+    <nav epub:type="toc">
+      <ol>
+        <li><a href="Text/chapter1.html">01 从零开始</a></li>
+      </ol>
+    </nav>
+  </body>
+</html>`
+    }
+  });
+
+  const epub = await context.parseEpub(base64);
+
+  assert.equal(
+    JSON.stringify(epub.toc),
+    JSON.stringify([{ label: '01 从零开始', target: '#br-chapter-1' }])
+  );
+  assert.match(epub.html, /id="br-chapter-1"/);
+}
+
+async function testUnsafeEpubHtmlIsStripped() {
+  const context = loadParserContext();
+  const base64 = await makeEpub({
+    manifestItems: '<item href="Text/chapter1.html" id="chapter1" media-type="application/xhtml+xml"/>',
+    spineItems: '<itemref idref="chapter1"/>',
+    files: {
+      'OEBPS/Text/chapter1.html': `<?xml version="1.0"?>
+<html>
+  <body>
+    <script>alert('x')</script>
+    <p onclick="alert('x')">Safe text</p>
+    <a href="javascript:alert('x')">Bad link</a>
+  </body>
+</html>`
+    }
+  });
+
+  const epub = await context.parseEpub(base64);
+
+  assert.match(epub.html, /Safe text/);
+  assert.doesNotMatch(epub.html, /<script/);
+  assert.doesNotMatch(epub.html, /onclick=/);
+  assert.doesNotMatch(epub.html, /javascript:/);
 }
 
 (async () => {
   await testManifestAttributesCanBeInAnyOrder();
+  await testRelativeImagesAreInlined();
+  await testNavTocTargetsChapterAnchors();
+  await testUnsafeEpubHtmlIsStripped();
   console.log('epub parser tests passed');
 })().catch((error) => {
   console.error(error);
