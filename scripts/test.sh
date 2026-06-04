@@ -10,6 +10,7 @@ CLANG_MODULE_CACHE="${BUILD_DIR}/module-cache"
 
 echo "Checking JavaScript syntax..."
 node "${ROOT_DIR}/tests/epub-parser.test.js"
+node "${ROOT_DIR}/tests/native-window-hitzones.test.js"
 node --check "${ROOT_DIR}/web/app.js"
 
 echo "Building WKWebView EPUB smoke runner..."
@@ -25,6 +26,7 @@ clang \
   -o "${WK_RUNNER}"
 
 echo "Running WKWebView EPUB smoke test..."
+"${WK_RUNNER}" "${ROOT_DIR}" "${ROOT_DIR}/tests/wkwebview_markdown_smoke.js"
 "${WK_RUNNER}" "${ROOT_DIR}" "${ROOT_DIR}/tests/wkwebview_epub_smoke.js"
 
 echo "Building BabyReader..."

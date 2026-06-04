@@ -19,11 +19,10 @@
     NSRect bounds = self.contentView.bounds;
     CGFloat topbarHeight = 52.0;
     CGFloat rightControlsWidth = 360.0;
-    CGFloat leftControlsStart = 68.0;
     CGFloat leftControlsEnd = 112.0;
     BOOL isTopbar = NSPointInRect(point, bounds) && point.y >= NSHeight(bounds) - topbarHeight;
     BOOL isRightControl = point.x >= NSWidth(bounds) - rightControlsWidth;
-    BOOL isLeftControl = point.x >= leftControlsStart && point.x <= leftControlsEnd;
+    BOOL isLeftControl = point.x <= leftControlsEnd;
     BOOL isControlArea = isRightControl || isLeftControl;
 
     if (isTopbar && !isControlArea) {
