@@ -5,6 +5,8 @@ A native macOS EPUB reader and Markdown editor — warm themes, highlighting, fo
 
 ![BabyReader](assets/babyreader.png)
 
+![BabyReader EPUB view](assets/babyreader-latest.png)
+
 ## What This Does
 
 **BabyReader** is a native macOS app for reading and editing Markdown, with full EPUB support. Drop in a file, read it in a warm environment designed for long sessions, then Cmd+E into a full editor when you need to write. No browser, no tabs, no ads — just the text.
