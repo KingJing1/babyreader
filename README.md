@@ -25,6 +25,14 @@ A native macOS EPUB reader and Markdown editor — warm themes, highlighting, fo
 
 ## Installation
 
+### Download the app
+
+Download `BabyReader-v2.0.0.zip` from the [latest GitHub release](https://github.com/KingJing1/babyreader/releases/latest), unzip it, and move `BabyReader.app` to `~/Applications`.
+
+Because BabyReader is an independent open-source app without Apple notarization, macOS will show a security warning the first time you open it. Right-click the app → **Open** → confirm. This only happens once.
+
+### Build from source
+
 ```bash
 # Requires macOS with Xcode command-line tools
 xcode-select --install   # if not already installed
@@ -35,6 +43,13 @@ cd babyreader
 ```
 
 The script compiles the native binary, bundles the app, and installs to `~/Applications/BabyReader.app`. It registers with Launch Services and sets BabyReader as the default handler for `.md` and `.epub` files.
+
+## What's New in 2.0
+
+- **EPUB reader** — table-of-contents sidebar, continuous scrolling, embedded images, warm dark/light themes that actually feel warm
+- **Highlighting** — select text to highlight; re-select to remove. Highlights persist across sessions and auto-save to `~/Documents/BabyReader/` as Markdown
+- **Native macOS chrome** — transparent titlebar, left-side TOC toggle, zero-divider layout. Looks like it belongs on your Mac, not in a browser
+- **Font scaling & position memory** — Cmd+/- zoom that works, and it remembers where you left off
 
 ## Usage
 
@@ -72,9 +87,12 @@ babyreader/
 │       ├── jszip.min.js    # EPUB/ZIP parser
 │       └── epub.min.js     # epub.js (bundled, reserved for future paginated mode)
 ├── scripts/
-│   └── build.sh        # Compile, bundle, install, sign, register
+│   ├── build.sh        # Compile, bundle, install, sign, register
+│   └── test.sh         # JS/parser checks, WKWebView smoke test, build
 └── tests/
-    └── epub-parser.test.js
+    ├── epub-parser.test.js
+    ├── wkwebview_epub_smoke.js
+    └── wkwebview_epub_smoke.m
 ```
 
 ## Philosophy
