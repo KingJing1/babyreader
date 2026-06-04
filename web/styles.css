@@ -87,21 +87,17 @@ body {
 }
 
 /* --- Scrollbar --- */
-.reader::-webkit-scrollbar,
 .editor::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
-.reader::-webkit-scrollbar-track,
 .editor::-webkit-scrollbar-track {
   background: transparent;
 }
-.reader::-webkit-scrollbar-thumb,
 .editor::-webkit-scrollbar-thumb {
   background: var(--border);
   border-radius: 3px;
 }
-.reader::-webkit-scrollbar-thumb:hover,
 .editor::-webkit-scrollbar-thumb:hover {
   background: var(--text-dim);
 }
@@ -271,7 +267,12 @@ body.is-welcome .app-name {
    Reader (read mode)
    ============================================================ */
 .reader {
-  height: 100vh;
+  position: fixed;
+  top: var(--topbar-h);
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: auto;
   overflow-y: auto;
   overflow-x: hidden;
 }
@@ -288,7 +289,7 @@ body.has-toc.toc-open .reader {
   position: relative;
   max-width: 720px;
   margin: 0 auto;
-  padding: 100px 40px 120px; /* 52px topbar + 48px breathing room */
+  padding: 48px 40px 120px;
 }
 
 .epub-shell {
@@ -309,7 +310,7 @@ body.has-toc.toc-open .reader {
 }
 
 .reader.is-welcome .article {
-  height: 100vh;
+  height: 100%;
   max-width: none;
   padding: 0 40px;
   display: flex;
@@ -913,7 +914,7 @@ body:not(.toc-open) .toc {
   }
 
   .reader .article {
-    padding: 84px 24px 80px;
+    padding: 32px 24px 80px;
   }
 
   .epub-shell {
