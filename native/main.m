@@ -17,10 +17,14 @@
   if (event.type == NSEventTypeLeftMouseDown) {
     NSPoint point = [self.contentView convertPoint:event.locationInWindow fromView:nil];
     NSRect bounds = self.contentView.bounds;
-    CGFloat topbarHeight = 56.0;
+    CGFloat topbarHeight = 52.0;
     CGFloat rightControlsWidth = 360.0;
+    CGFloat leftControlsStart = 68.0;
+    CGFloat leftControlsEnd = 112.0;
     BOOL isTopbar = NSPointInRect(point, bounds) && point.y >= NSHeight(bounds) - topbarHeight;
-    BOOL isControlArea = point.x >= NSWidth(bounds) - rightControlsWidth;
+    BOOL isRightControl = point.x >= NSWidth(bounds) - rightControlsWidth;
+    BOOL isLeftControl = point.x >= leftControlsStart && point.x <= leftControlsEnd;
+    BOOL isControlArea = isRightControl || isLeftControl;
 
     if (isTopbar && !isControlArea) {
       [self performWindowDragWithEvent:event];
@@ -108,7 +112,8 @@
   NSUInteger styleMask = NSWindowStyleMaskTitled          |
                          NSWindowStyleMaskClosable        |
                          NSWindowStyleMaskMiniaturizable  |
-                         NSWindowStyleMaskResizable;
+                         NSWindowStyleMaskResizable       |
+                         NSWindowStyleMaskFullSizeContentView;
 
   // Restore last saved frame, or default to full visible-screen height
   NSRect initialFrame;

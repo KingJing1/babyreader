@@ -25,7 +25,7 @@
   --pre-text:    #b8c0c8;
   --table-row:   rgba(255,255,255,0.02);
   --welcome-hint:#504945;
-  --topbar-h:    48px;
+  --topbar-h:    52px;
 
   --font-serif:  "Songti SC", "Iowan Old Style", Georgia, serif;
   --font-sans:   -apple-system, "PingFang SC", "Helvetica Neue", sans-serif;
@@ -44,8 +44,8 @@ body.theme-light {
   --text-strong: #161513;
   --accent:      #C8A26C;
   --border:      #DAD0C3;
-  --topbar-bg:   rgba(252, 248, 241, 0.88);
-  --toc-bg:      rgba(246, 245, 241, 0.88);
+  --topbar-bg:   rgba(252, 248, 241, 0.92);
+  --toc-bg:      rgba(238, 234, 226, 0.92);
   --hover-bg:    rgba(58, 52, 46, 0.06);
   --selection-bg:rgba(200, 162, 108, 0.28);
   --highlight-bg:rgba(200, 162, 108, 0.22);
@@ -87,18 +87,22 @@ body {
 }
 
 /* --- Scrollbar --- */
-::-webkit-scrollbar {
+.reader::-webkit-scrollbar,
+.editor::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
-::-webkit-scrollbar-track {
+.reader::-webkit-scrollbar-track,
+.editor::-webkit-scrollbar-track {
   background: transparent;
 }
-::-webkit-scrollbar-thumb {
+.reader::-webkit-scrollbar-thumb,
+.editor::-webkit-scrollbar-thumb {
   background: var(--border);
   border-radius: 3px;
 }
-::-webkit-scrollbar-thumb:hover {
+.reader::-webkit-scrollbar-thumb:hover,
+.editor::-webkit-scrollbar-thumb:hover {
   background: var(--text-dim);
 }
 
@@ -116,11 +120,10 @@ body {
   align-items: center;
   justify-content: space-between;
   box-sizing: border-box;
-  padding: 0 20px;
+  padding: 4px 20px 0 76px;
   background: var(--topbar-bg);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border-bottom: 1px solid var(--border);
   -webkit-app-region: drag; /* allow window drag in native app */
 }
 
@@ -249,17 +252,19 @@ body.is-epub .mode-btn {
   display: none;
 }
 
-body.is-epub .file-name {
-  display: none;
-}
-
 body.is-welcome .mode-btn,
 body.is-welcome .file-name {
   display: none;
 }
 
-body.is-welcome .topbar {
+body.is-welcome .app-name {
   display: none;
+}
+
+.file-name:not(:empty)::before {
+  content: "·";
+  margin-right: 12px;
+  color: var(--text-dim);
 }
 
 /* ============================================================
@@ -283,7 +288,7 @@ body.has-toc.toc-open .reader {
   position: relative;
   max-width: 720px;
   margin: 0 auto;
-  padding: 96px 40px 120px; /* 48px topbar + 48px breathing room */
+  padding: 100px 40px 120px; /* 52px topbar + 48px breathing room */
 }
 
 .epub-shell {
@@ -606,7 +611,7 @@ body.has-toc.toc-open .reader {
 }
 
 .article .epub-chapter {
-  scroll-margin-top: 72px;
+  scroll-margin-top: 76px;
 }
 
 /* ============================================================
@@ -622,7 +627,6 @@ body.has-toc.toc-open .reader {
   overflow-y: auto;
   padding: 24px 16px 40px 20px;
   background: var(--toc-bg);
-  border-right: 1px solid var(--border);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
 }
@@ -679,7 +683,8 @@ body:not(.toc-open) .toc {
    ============================================================ */
 
 /* TITLE block — also applied to first h1 */
-.article .block-title {
+.article .block-title,
+.article h1.is-title {
   font-family: var(--font-serif);
   font-size: 2rem;
   font-weight: 700;
@@ -688,11 +693,6 @@ body:not(.toc-open) .toc {
   color: var(--text);
   margin-top: 20px;
   margin-bottom: 16px;
-}
-
-/* First h1 in markdown is already shown in the topbar — hide it */
-.article h1.is-title {
-  display: none;
 }
 
 /* SUBTITLE block */
@@ -913,7 +913,7 @@ body:not(.toc-open) .toc {
   }
 
   .reader .article {
-    padding: 80px 24px 80px;
+    padding: 84px 24px 80px;
   }
 
   .epub-shell {
