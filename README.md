@@ -1,6 +1,6 @@
 # BabyReader
 
-A native macOS EPUB reader and Markdown editor — warm themes, highlighting, for focused reading.
+A native macOS EPUB reader and Markdown editor with warm themes and highlighting, built for focused reading.
 阅读是一座随身携带的避难所。
 
 ![BabyReader](assets/babyreader.png)
