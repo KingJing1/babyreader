@@ -140,8 +140,8 @@
   self.window.minSize                    = NSMakeSize(520, 520);
   self.window.collectionBehavior         = NSWindowCollectionBehaviorFullScreenPrimary;
   self.window.appearance                 = [NSAppearance appearanceNamed:NSAppearanceNameDarkAqua];
-  self.window.titleVisibility            = NSWindowTitleVisible;
-  self.window.titlebarAppearsTransparent = NO;
+  self.window.titleVisibility            = NSWindowTitleHidden;
+  self.window.titlebarAppearsTransparent = YES;
   self.window.movableByWindowBackground  = NO;
   self.window.title                      = @"BabyReader";
   self.window.tabbingMode                = NSWindowTabbingModeDisallowed;

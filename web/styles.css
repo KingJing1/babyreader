@@ -679,8 +679,7 @@ body:not(.toc-open) .toc {
    ============================================================ */
 
 /* TITLE block — also applied to first h1 */
-.article .block-title,
-.article h1.is-title {
+.article .block-title {
   font-family: var(--font-serif);
   font-size: 2rem;
   font-weight: 700;
@@ -689,6 +688,11 @@ body:not(.toc-open) .toc {
   color: var(--text);
   margin-top: 20px;
   margin-bottom: 16px;
+}
+
+/* First h1 in markdown is already shown in the topbar — hide it */
+.article h1.is-title {
+  display: none;
 }
 
 /* SUBTITLE block */
