@@ -27,9 +27,27 @@ A native macOS EPUB reader and Markdown editor with warm themes and highlighting
 
 ### Download the app
 
-Download `BabyReader-v2.0.1.zip` from the [latest GitHub release](https://github.com/KingJing1/babyreader/releases/latest), unzip it, and move `BabyReader.app` to `~/Applications`.
+Download `BabyReader-v2.0.2.zip` from the [latest GitHub release](https://github.com/KingJing1/babyreader/releases/latest), unzip it, and move `BabyReader.app` to your Applications folder before opening it.
 
-Because BabyReader is an independent open-source app without Apple notarization, macOS will show a security warning the first time you open it. Right-click the app → **Open** → confirm. This only happens once.
+Because BabyReader is an independent open-source app without Apple notarization, macOS may block the first launch.
+
+Recommended first launch:
+
+1. Move `BabyReader.app` to `/Applications` or `~/Applications`.
+2. Right-click `BabyReader.app` → **Open** → confirm.
+3. If macOS still refuses to open it, remove the download quarantine flag once:
+
+```bash
+xattr -dr com.apple.quarantine /Applications/BabyReader.app
+```
+
+If you installed it in your user Applications folder instead, use:
+
+```bash
+xattr -dr com.apple.quarantine ~/Applications/BabyReader.app
+```
+
+After that, BabyReader should open normally. macOS may not ask to make it the default reader automatically; you can still use **Open With** for `.md`, `.txt`, and `.epub` files.
 
 ### Build from source
 
@@ -42,7 +60,13 @@ cd babyreader
 ./scripts/build.sh
 ```
 
-The script compiles the native binary, bundles the app, and installs to `~/Applications/BabyReader.app`. It registers with Launch Services and sets BabyReader as the default handler for `.md` and `.epub` files.
+The script compiles the native binary, bundles the app, and installs to `~/Applications/BabyReader.app`. It registers with Launch Services and sets BabyReader as the default handler for `.md`, `.txt`, and `.epub` files.
+
+To create a clean release zip:
+
+```bash
+./scripts/package_release.sh
+```
 
 ## What's New in 2.0
 

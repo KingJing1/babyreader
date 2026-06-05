@@ -3,6 +3,14 @@
 @import CoreServices;
 @import UniformTypeIdentifiers;
 
+static NSArray<NSString *> *BRDefaultContentTypes(void) {
+  return @[
+    @"net.daringfireball.markdown",
+    @"public.plain-text",
+    @"org.idpf.epub-container"
+  ];
+}
+
 // ---------------------------------------------------------------------------
 // Forward declarations
 // ---------------------------------------------------------------------------
@@ -695,19 +703,16 @@
   [NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
   [NSWindow setAllowsAutomaticWindowTabbing:NO];
 
-  // Register as default handler for Markdown files
+  // Register as the default reader for supported document types.
   NSString *bundleID = [[NSBundle mainBundle] bundleIdentifier];
   if (bundleID) {
-    LSSetDefaultRoleHandlerForContentType(
-      (__bridge CFStringRef)@"net.daringfireball.markdown",
-      kLSRolesAll,
-      (__bridge CFStringRef)bundleID
-    );
-    LSSetDefaultRoleHandlerForContentType(
-      (__bridge CFStringRef)@"org.idpf.epub-container",
-      kLSRolesAll,
-      (__bridge CFStringRef)bundleID
-    );
+    for (NSString *contentType in BRDefaultContentTypes()) {
+      LSSetDefaultRoleHandlerForContentType(
+        (__bridge CFStringRef)contentType,
+        kLSRolesAll,
+        (__bridge CFStringRef)bundleID
+      );
+    }
   }
 
   [self buildMenuBar];

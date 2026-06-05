@@ -61,7 +61,9 @@ clang \
 # Ensure binary is executable
 chmod +x "${MACOS}/${APP_NAME}"
 
-# Remove quarantine and ad-hoc sign so macOS Gatekeeper doesn't block it
+# Keep the local bundle clean and internally consistent. This is ad-hoc signing,
+# not Developer ID signing/notarization, so downloaded releases may still need
+# a first-launch Gatekeeper override.
 xattr -cr "${APP_BUNDLE}"
 codesign --force --deep --sign - "${APP_BUNDLE}" 2>/dev/null
 
@@ -75,5 +77,15 @@ codesign --force --deep --sign - "${INSTALL_DIR}/${APP_NAME}.app" 2>/dev/null
 
 # Register with Launch Services
 /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "${INSTALL_DIR}/${APP_NAME}.app" 2>/dev/null
+
+REGISTER_HELPER="${BUILD_DIR}/register_defaults"
+BUNDLE_ID=$(/usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "${ROOT_DIR}/native/Info.plist")
+clang \
+    -fmodules \
+    -framework Foundation \
+    -framework CoreServices \
+    "${ROOT_DIR}/scripts/register_defaults.m" \
+    -o "${REGISTER_HELPER}"
+"${REGISTER_HELPER}" "${BUNDLE_ID}"
 
 echo "Done. Installed: ${INSTALL_DIR}/${APP_NAME}.app"
