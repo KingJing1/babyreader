@@ -8,6 +8,7 @@ BUILD_DIR="${ROOT_DIR}/build/tests"
 WK_RUNNER="${BUILD_DIR}/wkwebview_epub_smoke"
 HANDLER_QUERY="${BUILD_DIR}/default_handlers_query"
 CLANG_MODULE_CACHE="${BUILD_DIR}/module-cache"
+MACOS_MIN_VERSION=$(/usr/libexec/PlistBuddy -c "Print :LSMinimumSystemVersion" "${ROOT_DIR}/native/Info.plist")
 
 echo "Checking JavaScript syntax..."
 node "${ROOT_DIR}/tests/epub-parser.test.js"
@@ -22,6 +23,7 @@ clang \
   -fmodules \
   -fmodules-cache-path="${CLANG_MODULE_CACHE}" \
   -fobjc-arc \
+  -mmacosx-version-min="${MACOS_MIN_VERSION}" \
   -framework Cocoa \
   -framework WebKit \
   "${ROOT_DIR}/tests/wkwebview_epub_smoke.m" \
@@ -38,6 +40,7 @@ echo "Checking default document handlers..."
 clang \
   -fmodules \
   -fmodules-cache-path="${CLANG_MODULE_CACHE}" \
+  -mmacosx-version-min="${MACOS_MIN_VERSION}" \
   -framework Foundation \
   -framework CoreServices \
   "${ROOT_DIR}/tests/default-handlers-query.m" \

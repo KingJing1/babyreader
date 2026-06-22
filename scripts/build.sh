@@ -14,8 +14,10 @@ CONTENTS="${APP_BUNDLE}/Contents"
 MACOS="${CONTENTS}/MacOS"
 RESOURCES_WEB="${CONTENTS}/Resources/web"
 RESOURCES_WEB_LIB="${RESOURCES_WEB}/lib"
+CLANG_MODULE_CACHE="${BUILD_DIR}/module-cache"
+MACOS_MIN_VERSION=$(/usr/libexec/PlistBuddy -c "Print :LSMinimumSystemVersion" "${ROOT_DIR}/native/Info.plist")
 
-echo "Building ${APP_NAME}..."
+echo "Building ${APP_NAME} for macOS ${MACOS_MIN_VERSION}+..."
 
 # Always start from a clean build directory to prevent asset drift
 rm -rf "${BUILD_DIR}"
@@ -24,6 +26,7 @@ rm -rf "${BUILD_DIR}"
 mkdir -p "${MACOS}"
 mkdir -p "${RESOURCES_WEB}"
 mkdir -p "${RESOURCES_WEB_LIB}"
+mkdir -p "${CLANG_MODULE_CACHE}"
 
 # Copy Info.plist
 cp "${ROOT_DIR}/native/Info.plist" "${CONTENTS}/Info.plist"
@@ -51,7 +54,9 @@ fi
 # Compile native/main.m
 clang \
     -fmodules \
+    -fmodules-cache-path="${CLANG_MODULE_CACHE}" \
     -fobjc-arc \
+    -mmacosx-version-min="${MACOS_MIN_VERSION}" \
     -framework Cocoa \
     -framework WebKit \
     -framework CoreServices \
@@ -66,6 +71,11 @@ chmod +x "${MACOS}/${APP_NAME}"
 # a first-launch Gatekeeper override.
 xattr -cr "${APP_BUNDLE}"
 codesign --force --deep --sign - "${APP_BUNDLE}" 2>/dev/null
+
+if [[ "${BR_SKIP_INSTALL:-0}" == "1" ]]; then
+  echo "Done. Built: ${APP_BUNDLE}"
+  exit 0
+fi
 
 # Install to ~/Applications for proper macOS integration
 INSTALL_DIR="${HOME}/Applications"
@@ -82,6 +92,8 @@ REGISTER_HELPER="${BUILD_DIR}/register_defaults"
 BUNDLE_ID=$(/usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "${ROOT_DIR}/native/Info.plist")
 clang \
     -fmodules \
+    -fmodules-cache-path="${CLANG_MODULE_CACHE}" \
+    -mmacosx-version-min="${MACOS_MIN_VERSION}" \
     -framework Foundation \
     -framework CoreServices \
     "${ROOT_DIR}/scripts/register_defaults.m" \
