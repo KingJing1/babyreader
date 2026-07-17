@@ -145,6 +145,9 @@ body {
   color: var(--text);
   letter-spacing: 0.01em;
   flex-shrink: 0;
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: default;
 }
 
 .file-name {
@@ -155,6 +158,9 @@ body {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: default;
 }
 
 /* Mode toggle buttons */
@@ -502,6 +508,9 @@ body.has-toc.toc-open .reader {
   padding: 20px;
   margin: 24px 0;
   overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 .article pre code {
